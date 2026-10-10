@@ -6,6 +6,7 @@ import * as lock from '../core/lock.js';
 import { encrypt, decrypt, isEncrypted } from '../core/crypto.js';
 import { download } from '../core/export.js';
 import { logger } from '../core/log.js';
+import { getAiConfig, saveAiConfig } from '../core/ai.js';
 import { esc, toast } from '../ui.js';
 
 const range = (k, label, min, max, step = 1, detailed = true) =>
@@ -25,7 +26,7 @@ function account() {
 }
 
 export function render(root) {
-  const p = prefs(), { profiles, profile } = store.live();
+  const p = prefs(), { profiles, profile } = store.live(), aiCfg = getAiConfig();
   if (cloud.configured() && !cloud.state().ready) cloud.init().then(() => render(root)).catch(e => logger.warn('Cloud init failed', { error: String(e) }));
   root.innerHTML = `
     <header class="top"><h1>Settings</h1></header>
@@ -56,6 +57,34 @@ export function render(root) {
       <div class="rows">${profiles.map(x => `<button class="row-item" data-profile="${x.id}">${esc(x.name)}<small>${x.id === profile.id ? 'Active' : 'Switch'}</small></button>`).join('')}</div>
       <form id="pf" class="row"><label class="field" style="flex:1"><span>Add person</span><input name="name" required></label><button class="btn">Add</button></form>
     </section>
+    <section class="card glass form" id="ai-settings">
+      <h2>AI Financial Co-Pilot</h2>
+      <p class="muted">Set up your AI provider. Built-in local intelligence works completely offline at zero cost.</p>
+      <label class="field">
+        <span>Provider</span>
+        <select data-ai-provider>
+          <option value="local" ${aiCfg.provider === 'local' ? 'selected' : ''}>Built-in Local (Instant, Free, Offline)</option>
+          <option value="gemini" ${aiCfg.provider === 'gemini' ? 'selected' : ''}>Google Gemini API</option>
+          <option value="openrouter" ${aiCfg.provider === 'openrouter' ? 'selected' : ''}>OpenRouter API</option>
+          <option value="custom" ${aiCfg.provider === 'custom' ? 'selected' : ''}>Custom OpenAI-compatible Endpoint</option>
+        </select>
+      </label>
+      <div id="ai-fields" ${aiCfg.provider === 'local' ? 'hidden' : ''} style="display:grid;gap:12px">
+        <label class="field">
+          <span>API Key</span>
+          <input type="password" data-ai-key placeholder="Enter API Key" value="${esc(aiCfg.apiKey || '')}">
+        </label>
+        <label class="field">
+          <span>Model Name</span>
+          <input type="text" data-ai-model placeholder="e.g. gemini-1.5-flash or google/gemini-2.0-flash-exp:free" value="${esc(aiCfg.model || '')}">
+        </label>
+        <label class="field" id="ai-endpoint-field" ${aiCfg.provider !== 'custom' ? 'hidden' : ''}>
+          <span>Base URL</span>
+          <input type="text" data-ai-endpoint placeholder="https://api.custom.com/v1" value="${esc(aiCfg.endpoint || '')}">
+        </label>
+      </div>
+      <div><button type="button" class="btn primary" data-ai-save>Save AI Provider</button></div>
+    </section>
     <section class="card glass form"><h2>Records & data</h2>
       <div class="rows">${link('#/statements', 'Statements', 'Export by day, month, fund, category, party…')}${link('#/audit', 'Audit trail', 'Every change to your data')}${link('#/logs', 'Logs', 'What the app did on this device')}</div>
       <p class="muted">Cloud sync: ${sync.status()}</p>
@@ -80,6 +109,10 @@ export function render(root) {
         let text = await t.files[0].text();
         if (isEncrypted(text)) text = await decrypt(text, prompt('Backup passphrase') || '');
         await store.importAll(text); toast('Backup imported');
+      } else if (t.matches('[data-ai-provider]')) {
+        const val = t.value;
+        const f = root.querySelector('#ai-fields'); if (f) f.hidden = val === 'local';
+        const ep = root.querySelector('#ai-endpoint-field'); if (ep) ep.hidden = val !== 'custom';
       }
     } catch (err) { toast(err.message || 'That didn’t work'); }
   };
@@ -105,6 +138,13 @@ export function render(root) {
       } else if (t.closest('[data-clearpin]')) {
         if (!(await lock.verify(prompt('Enter your PIN to remove it') || ''))) return toast('Wrong PIN');
         lock.clearPin(); logger.info('PIN removed'); render(root);
+      } else if (t.closest('[data-ai-save]')) {
+        const prov = root.querySelector('[data-ai-provider]')?.value || 'local';
+        const key = root.querySelector('[data-ai-key]')?.value.trim() || '';
+        const model = root.querySelector('[data-ai-model]')?.value.trim() || '';
+        const ep = root.querySelector('[data-ai-endpoint]')?.value.trim() || '';
+        saveAiConfig({ provider: prov, apiKey: key, model, endpoint: ep });
+        toast('AI configuration saved');
       }
     } catch (err) { toast(err.message || 'That didn’t work'); }
   };

@@ -55,15 +55,71 @@
 
 /* ---- nav ---- */
 .nav a,.nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.72rem;color:var(--ink-2);
-  background:none;border:0;padding:8px 10px;border-radius:calc(var(--radius)*.6);cursor:pointer}
+  background:none;border:0;padding:8px 8px;border-radius:calc(var(--radius)*.6);cursor:pointer;transition:.15s}
 .nav a.on{color:var(--accent);box-shadow:inset 3px 3px 7px var(--sh-lo),inset -3px -3px 7px var(--sh-hi)}
-.nav .add{background:var(--accent);color:#fff;border-radius:50%;width:52px;height:52px;justify-content:center;
-  box-shadow:5px 5px 12px var(--sh-lo),-4px -4px 10px var(--sh-hi)}
+.nav a:hover:not(.on){color:var(--ink)}
 .nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav-sep{height:1px;background:var(--glass-line);margin:6px 0;opacity:.7}
+.nav-section{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);padding:6px 12px 2px}
+
 @media(min-width:900px){
-  .nav a,.nav button{flex-direction:row;gap:12px;font-size:.95rem;padding:11px 14px}
-  .nav .add{width:auto;height:auto;border-radius:calc(var(--radius)*.6);justify-content:flex-start}
+  .nav a,.nav button{flex-direction:row;gap:12px;font-size:.92rem;font-weight:600;padding:10px 14px;border-radius:calc(var(--radius)*.65);width:100%}
+  .nav a.on{background:var(--bg)}
 }
+
+/* ---- Draggable Floating Action Buttons (FAB) ---- */
+.fab{position:fixed;top:0;left:0;z-index:25;border:0;cursor:grab;touch-action:none;user-select:none;
+  display:flex;align-items:center;justify-content:center;will-change:transform}
+.fab.dragging{cursor:grabbing;opacity:.92;transform:scale(1.04)}
+
+/* Round Add Entry button */
+.fab-add{width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;
+  box-shadow:6px 6px 16px var(--sh-lo),-6px -6px 16px var(--sh-hi),0 0 24px hsl(var(--accent-h) 65% 45% / .35);
+  font-size:1.8rem;transition:box-shadow .2s, transform .2s}
+.fab-add svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fab-add:hover{transform:scale(1.06)}
+
+/* Animated Floating Pill AI Button */
+@keyframes ai-pulse {
+  0%, 100% { box-shadow: 6px 6px 16px var(--sh-lo), -6px -6px 16px var(--sh-hi), 0 0 16px hsl(var(--accent-h) 70% 50% / .2); }
+  50% { box-shadow: 6px 6px 18px var(--sh-lo), -6px -6px 18px var(--sh-hi), 0 0 28px hsl(var(--accent-h) 80% 55% / .55); }
+}
+@keyframes ai-sparkle {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.18) rotate(12deg); }
+}
+.fab-ai{height:50px;padding:0 18px;border-radius:99px;background:var(--bg);color:var(--ink);
+  border:1px solid var(--glass-line);gap:8px;font-size:.88rem;font-weight:700;
+  box-shadow:6px 6px 16px var(--sh-lo),-6px -6px 16px var(--sh-hi);
+  animation:ai-pulse 4s ease-in-out infinite;transition:transform .2s}
+.fab-ai:hover{transform:scale(1.05)}
+.fab-ai svg{width:20px;height:20px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+  animation:ai-sparkle 3s ease-in-out infinite}
+.fab-ai-text{white-space:nowrap}
+
+/* ---- AI Sheet & Co-Pilot Drawer ---- */
+.ai-sheet{display:grid;gap:14px}
+.ai-header{display:flex;justify-content:space-between;align-items:center}
+.ai-title{display:flex;align-items:center;gap:10px}
+.ai-sparkle svg{width:26px;height:26px;stroke:var(--accent);fill:none;stroke-width:2}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pos);margin-right:6px}
+.ai-quick-prompts{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.pill-btn{border:0;background:var(--bg);padding:6px 12px;border-radius:99px;font-size:.78rem;font-weight:600;
+  cursor:pointer;white-space:nowrap;color:var(--ink-2);
+  box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi)}
+.pill-btn:hover{color:var(--accent)}
+.ai-msgs{max-height:50vh;overflow-y:auto;padding-right:4px}
+.ai-msg .md-p{margin:4px 0}
+.ai-composer{display:flex;gap:8px;padding:8px;border-radius:calc(var(--radius)*.8)}
+.ai-composer input{flex:1;border:0;outline:0;padding:10px 14px;border-radius:calc(var(--radius)*.5);
+  background:var(--bg);box-shadow:inset 4px 4px 9px var(--sh-lo),inset -4px -4px 9px var(--sh-hi)}
+
+/* ---- Account View Styling ---- */
+.ac-card{display:grid;gap:16px}
+.ac-user-row{display:flex;align-items:center;gap:18px}
+.ac-avatar-img{width:68px;height:68px;border-radius:50%;object-fit:cover;border:3px solid var(--accent)}
+.ac-avatar-initials{width:68px;height:68px;border-radius:50%;display:grid;place-items:center;
+  background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:1.8rem;border:3px solid var(--accent)}
 
 /* ---- sheet + toast ---- */
 #sheet-root{position:fixed;inset:0;z-index:20;pointer-events:none}
