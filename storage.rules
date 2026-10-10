@@ -3,20 +3,25 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /chat-files/{chatId}/{msgId}/{filename} {
-      function chatData() {
-        return firestore.get(/databases/(default)/documents/chats/$(chatId)).data;
+      function chatPath() {
+        return /databases/(default)/documents/chats/$(chatId);
+      }
+
+      function chatDoc() {
+        return firestore.get(chatPath());
       }
 
       function isMember() {
-        return request.auth != null && (request.auth.uid in chatData().members);
+        return request.auth != null
+          && firestore.exists(chatPath())
+          && (request.auth.uid in chatDoc().data.members);
       }
 
       function canUpload() {
-        return request.auth != null
-          && (request.auth.uid in chatData().members)
+        return isMember()
           && (
-            chatData().status == 'accepted' ||
-            (chatData().status == 'pending' && chatData().requester == request.auth.uid)
+            chatDoc().data.status == 'accepted' ||
+            (chatDoc().data.status == 'pending' && chatDoc().data.requester == request.auth.uid)
           );
       }
 
@@ -30,3 +35,4 @@ service firebase.storage {
     }
   }
 }
+

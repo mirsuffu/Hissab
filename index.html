@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <meta name="theme-color" content="#2f9e7a">
 </head>
 <body>
   <div class="backdrop" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -17,5 +20,12 @@
   <div id="sheet-root"></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="js/main.js"></script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>

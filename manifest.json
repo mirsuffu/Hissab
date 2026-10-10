@@ -1,0 +1,17 @@
+{
+  "name": "Hisaab — Personal & Family Money Tracker",
+  "short_name": "Hisaab",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e3e8ee",
+  "theme_color": "#2f9e7a",
+  "description": "Minimal, offline-first, family-scale income, expense, and fund tracker with 1:1 chat and cloud sync.",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

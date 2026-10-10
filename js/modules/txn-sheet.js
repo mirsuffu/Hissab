@@ -12,6 +12,7 @@ export function openTxnSheet({ txn = null, fundId = null } = {}) {
   if (!L.funds.length && !txn) { toast('Create a fund first'); location.hash = '#/funds'; return; }
   const t = txn || { type: 'out', amount: 0, fundId: fundId || L.funds[0].id, categoryId: GENERAL_ID, partyId: '', date: today(), note: '' };
   const funds = withCurrent(L.funds, L.allFunds, t.fundId), cats = withCurrent(L.categories, L.allCategories, t.categoryId), parties = withCurrent(L.parties, L.allParties, t.partyId);
+  const otherFund = funds.find(f => f.id !== t.fundId)?.id || funds[0]?.id;
   openSheet(`
     <h2>${txn ? 'Edit entry' : 'New entry'}</h2>
     <form id="tf" class="form">
@@ -22,7 +23,7 @@ export function openTxnSheet({ txn = null, fundId = null } = {}) {
       </div>
       <label class="field"><span>Amount</span><input name="amount" inputmode="decimal" required autocomplete="off" value="${t.amount ? fromMinor(t.amount) : ''}"></label>
       <label class="field"><span>Fund</span><select name="fundId">${funds.map(f => opt(f, t.fundId, f.name + (f.holder ? ' · ' + f.holder : ''))).join('')}</select></label>
-      <label class="field" id="toFund" hidden><span>Move to fund</span><select name="toFund">${funds.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('')}</select></label>
+      <label class="field" id="toFund" hidden><span>Move to fund</span><select name="toFund">${funds.map(f => `<option value="${f.id}" ${f.id === otherFund ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
       <label class="field d-only cat-party"><span>Category</span><select name="categoryId" data-new="categories">${cats.map(c => opt(c, t.categoryId)).join('')}<option value="__new">+ New category…</option></select></label>
       <label class="field d-only cat-party"><span>Party (who from / to)</span><select name="partyId" data-new="parties"><option value="">None</option>${parties.map(p => opt(p, t.partyId)).join('')}<option value="__new">+ New party…</option></select></label>
       <label class="field d-only"><span>Date</span><input type="date" name="date" value="${t.date}" required></label>

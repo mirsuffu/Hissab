@@ -112,16 +112,25 @@ async function upload(id, msgId, file) {
 }
 
 export async function send(other, text, file) {
-  need(); const { doc, collection, getDoc, writeBatch, increment } = F.Fs, id = chatId(me.uid, other.uid), ref = doc(db, 'chats', id);
-  const snap = await getDoc(ref), chat = snap.exists() ? snap.data() : null, t = (text || '').trim();
+  need(); const { doc, collection, getDoc, setDoc, writeBatch, increment } = F.Fs, id = chatId(me.uid, other.uid), ref = doc(db, 'chats', id);
+  let snap = await getDoc(ref), chat = snap.exists() ? snap.data() : null, t = (text || '').trim();
   if (!t && !file) throw new Error('Type a message or attach a file');
   if (chat?.status === 'blocked') throw new Error('This chat is blocked');
   if (chat?.status === 'pending') throw new Error(chat.requester === me.uid ? 'Waiting for them to accept your request' : 'Accept the request to reply');
-  const msgRef = doc(collection(db, 'chats', id, 'messages')), attachment = file ? await upload(id, msgRef.id, file) : null, now = Date.now();
+  const now = Date.now();
+  if (!chat) {
+    await setDoc(ref, {
+      members: [me.uid, other.uid].sort(), status: 'pending', requester: me.uid, createdAt: now, updatedAt: now,
+      lastMessage: { text: t || (file ? `📎 ${file.name}`.slice(0, 80) : ''), ts: now, from: me.uid },
+      unread: { [me.uid]: 0, [other.uid]: 1 },
+      names: { [me.uid]: profile.name, [other.uid]: other.name },
+      handles: { [me.uid]: profile.handle, [other.uid]: other.handle }
+    });
+    chat = { status: 'pending', requester: me.uid };
+  }
+  const msgRef = doc(collection(db, 'chats', id, 'messages')), attachment = file ? await upload(id, msgRef.id, file) : null;
   const last = { text: t || `📎 ${attachment.name}`.slice(0, 80), ts: now, from: me.uid }, batch = writeBatch(db);
-  if (!chat) batch.set(ref, { members: [me.uid, other.uid].sort(), status: 'pending', requester: me.uid, createdAt: now, updatedAt: now, lastMessage: last,
-    unread: { [me.uid]: 0, [other.uid]: 1 }, names: { [me.uid]: profile.name, [other.uid]: other.name }, handles: { [me.uid]: profile.handle, [other.uid]: other.handle } });
-  else batch.update(ref, { updatedAt: now, lastMessage: last, [`unread.${other.uid}`]: increment(1) });
+  batch.update(ref, { updatedAt: now, lastMessage: last, [`unread.${other.uid}`]: increment(1) });
   batch.set(msgRef, { from: me.uid, text: t, ts: now, ...(attachment && { attachment }) });
   await batch.commit();
 }

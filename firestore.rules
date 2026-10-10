@@ -1,18 +1,105 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 11, 9);
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Public profile: any signed-in user can read; owner writes; handle is immutable
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.handle is string
+        && request.resource.data.name is string;
+      allow update: if isOwner(uid)
+        && request.resource.data.handle == resource.data.handle;
+      allow delete: if false;
+
+      // Personal financial sync collections: owner only
+      match /{kind}/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // Unique chat handles (@id): claimed once atomically; immutable & undeletable
+    match /handles/{handle} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && !exists(/databases/$(database)/documents/handles/$(handle))
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Discoverable user directory: owner writes/deletes own entry; anyone signed in reads/searches
+    match /directory/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid);
+      allow delete: if isOwner(uid);
+    }
+
+    // 1:1 Chats: access restricted strictly to the two participants
+    match /chats/{chatId} {
+      function chatData() {
+        return resource.data;
+      }
+
+      function isMember() {
+        return isSignedIn() && (request.auth.uid in chatData().members);
+      }
+
+      function isNewMember() {
+        return isSignedIn() && (request.auth.uid in request.resource.data.members);
+      }
+
+      allow read: if isMember();
+
+      // Create: caller must be member, status must be pending, requester must be caller
+      allow create: if isNewMember()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.requester == request.auth.uid
+        && request.resource.data.members.size() == 2;
+
+      // Update: members only; allow transitions: accept, block, unblock, or message updates
+      allow update: if isMember()
+        && (
+          // Recipient accepts pending request
+          (chatData().status == 'pending' && request.resource.data.status == 'accepted' && chatData().requester != request.auth.uid) ||
+          // Either party blocks
+          (request.resource.data.status == 'blocked' && request.resource.data.blockedBy == request.auth.uid) ||
+          // Only the blocker can unblock
+          (chatData().status == 'blocked' && request.resource.data.status == 'accepted' && chatData().blockedBy == request.auth.uid) ||
+          // Metadata updates (last message, unread counters, timestamps)
+          (request.resource.data.members == chatData().members && request.resource.data.requester == chatData().requester)
+        );
+
+      allow delete: if false;
+
+      // Chat messages: members only, length capped at 2000 chars, immutable
+      match /messages/{msgId} {
+        function parentChat() {
+          return get(/databases/$(database)/documents/chats/$(chatId)).data;
+        }
+
+        allow read: if isSignedIn() && (request.auth.uid in parentChat().members);
+
+        allow create: if isSignedIn()
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 2000
+          && (
+            parentChat().status == 'accepted' ||
+            (parentChat().status == 'pending' && parentChat().requester == request.auth.uid)
+          );
+
+        allow update, delete: if false;
+      }
     }
   }
 }
+
