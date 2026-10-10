@@ -30,10 +30,24 @@ export function openSheet(html, onMount) {
   r.innerHTML = `<div class="scrim" data-close></div><section class="sheet glass" role="dialog" aria-modal="true">${html}</section>`;
   requestAnimationFrame(() => r.classList.add('open'));
   r.onclick = e => { if (e.target.closest('[data-close]')) closeSheet(); };
+  try { history.pushState({ hisaabSheet: true }, ''); } catch {}
   onMount?.(r.querySelector('.sheet'));
 }
-export function closeSheet() {
+
+export function closeSheet(fromPopState = false) {
   const r = $('#sheet-root');
-  r.classList.remove('open'); setTimeout(() => { if (!r.classList.contains('open')) r.innerHTML = ''; }, 260);
+  if (r.classList.contains('open') && !fromPopState && history.state?.hisaabSheet) {
+    try { history.back(); } catch {}
+  }
+  r.classList.remove('open');
+  setTimeout(() => { if (!r.classList.contains('open')) r.innerHTML = ''; }, 260);
 }
+
+window.addEventListener('popstate', () => {
+  const r = $('#sheet-root');
+  if (r?.classList.contains('open')) {
+    closeSheet(true);
+  }
+});
+
 export const dot = hue => `<span class="dot" style="background:hsl(${hue} 60% 52%)"></span>`;

@@ -62,7 +62,15 @@
 .nav-sep{height:1px;background:var(--glass-line);margin:6px 0;opacity:.7}
 .nav-section{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);padding:6px 12px 2px}
 
+/* Mobile Nav Center Add Button */
+.nav-add-btn{width:46px;height:46px;border-radius:50%;background:var(--accent);color:#fff;border:0;
+  display:grid;place-items:center;margin-top:-14px;box-shadow:0 6px 14px hsl(var(--accent-h) 65% 40% / .4);
+  cursor:pointer;flex-shrink:0;transition:transform .15s}
+.nav-add-btn:active{transform:scale(.94)}
+.nav-add-btn svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+
 @media(min-width:900px){
+  .nav-add-btn{display:none!important}
   .nav a,.nav button{flex-direction:row;gap:12px;font-size:.92rem;font-weight:600;padding:10px 14px;border-radius:calc(var(--radius)*.65);width:100%}
   .nav a.on{background:var(--bg)}
 }
@@ -72,7 +80,7 @@
   display:flex;align-items:center;justify-content:center;will-change:transform}
 .fab.dragging{cursor:grabbing;opacity:.92;transform:scale(1.04)}
 
-/* Round Add Entry button */
+/* Round Add Entry button (Desktop only, mobile uses center nav button) */
 .fab-add{width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;
   box-shadow:6px 6px 16px var(--sh-lo),-6px -6px 16px var(--sh-hi),0 0 24px hsl(var(--accent-h) 65% 45% / .35);
   font-size:1.8rem;transition:box-shadow .2s, transform .2s}
@@ -96,6 +104,45 @@
 .fab-ai svg{width:20px;height:20px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
   animation:ai-sparkle 3s ease-in-out infinite}
 .fab-ai-text{white-space:nowrap}
+
+/* Mobile Responsive Adjustments (< 900px) */
+@media(max-width:899px){
+  #fab-add{display:none!important}
+  .fab-ai{width:52px;height:52px;padding:0;border-radius:50%;justify-content:center}
+  .fab-ai-text{display:none!important}
+  .fab-ai svg{width:22px;height:22px}
+  .card{padding:13px 14px;border-radius:calc(var(--radius)*.85)}
+  .hero{padding:14px 16px;gap:10px;border-radius:var(--radius)}
+  .big{font-size:1.85rem}
+  .split{gap:16px}
+  .split b{font-size:1rem}
+  .verdict{padding:7px 11px;font-size:.85rem}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  .tile{padding:11px 12px;gap:6px}
+  .tile b{font-size:1.1rem}
+  .tile .meter{height:8px}
+  .rows{gap:8px}
+  .row-item{padding:10px 13px;border-radius:calc(var(--radius)*.6)}
+  .amt{font-size:.95rem}
+  .nav{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));padding:5px 6px;border-radius:calc(var(--radius)*.95)}
+  .nav a,.nav button{padding:6px 4px;font-size:.67rem;gap:1px}
+  .nav svg{width:20px;height:20px}
+  .sheet{padding:16px 14px calc(16px + env(safe-area-inset-bottom));max-height:88dvh;gap:12px}
+}
+
+/* ---- AI Interactive Transaction Confirmation Card ---- */
+.ai-confirm-card{background:var(--bg);border:1.5px solid var(--accent);border-radius:calc(var(--radius)*.7);
+  padding:12px 14px;display:grid;gap:8px;box-shadow:4px 4px 12px var(--sh-lo),-4px -4px 12px var(--sh-hi);margin:8px 0}
+.ai-confirm-hdr{font-size:.8rem;font-weight:750;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.ai-confirm-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.86rem}
+.ai-confirm-grid span:nth-child(odd){color:var(--ink-2)}
+.ai-confirm-actions{display:flex;gap:8px;margin-top:4px}
+.ai-btn-approve{background:var(--pos);color:#fff;border:0;padding:7px 14px;border-radius:calc(var(--radius)*.5);
+  font-weight:700;font-size:.82rem;cursor:pointer;transition:.15s}
+.ai-btn-approve:hover{filter:brightness(1.1)}
+.ai-btn-deny{background:var(--bg);color:var(--neg);border:1px solid var(--neg);padding:7px 14px;border-radius:calc(var(--radius)*.5);
+  font-weight:700;font-size:.82rem;cursor:pointer;transition:.15s}
+.ai-confirm-done{padding:8px 12px;border-radius:calc(var(--radius)*.5);background:hsl(156 50% 36% / .14);color:var(--pos);font-weight:650;font-size:.85rem}
 
 /* ---- AI Sheet & Co-Pilot Drawer ---- */
 .ai-sheet{display:grid;gap:14px}

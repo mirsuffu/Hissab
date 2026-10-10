@@ -84,16 +84,24 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
     el.classList.remove('dragging');
     try { el.releasePointerCapture?.(e.pointerId); } catch {}
 
-    if (!hasMoved) {
-      onClick?.(e);
-    } else {
+    if (hasMoved) {
       const rect = el.getBoundingClientRect();
       snapToWall(rect.left, rect.top);
+      // Briefly preserve hasMoved to suppress the following synthetic click
+      setTimeout(() => { hasMoved = false; }, 50);
     }
   };
 
   el.addEventListener('pointerup', onEnd);
   el.addEventListener('pointercancel', onEnd);
+  el.addEventListener('click', e => {
+    if (hasMoved) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onClick?.(e);
+  });
 
   window.addEventListener('resize', () => {
     const rect = el.getBoundingClientRect();

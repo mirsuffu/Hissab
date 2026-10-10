@@ -24,9 +24,9 @@ export function openTxnSheet({ txn = null, fundId = null } = {}) {
       <label class="field"><span>Amount</span><input name="amount" inputmode="decimal" required autocomplete="off" value="${t.amount ? fromMinor(t.amount) : ''}"></label>
       <label class="field"><span>Fund</span><select name="fundId">${funds.map(f => opt(f, t.fundId, f.name + (f.holder ? ' · ' + f.holder : ''))).join('')}</select></label>
       <label class="field" id="toFund" hidden><span>Move to fund</span><select name="toFund">${funds.map(f => `<option value="${f.id}" ${f.id === otherFund ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
-      <label class="field d-only cat-party"><span>Category</span><select name="categoryId" data-new="categories">${cats.map(c => opt(c, t.categoryId)).join('')}<option value="__new">+ New category…</option></select></label>
-      <label class="field d-only cat-party"><span>Party (who from / to)</span><select name="partyId" data-new="parties"><option value="">None</option>${parties.map(p => opt(p, t.partyId)).join('')}<option value="__new">+ New party…</option></select></label>
-      <label class="field d-only"><span>Date</span><input type="date" name="date" value="${t.date}" required></label>
+      <label class="${txn ? 'field cat-party' : 'field d-only cat-party'}"><span>Category</span><select name="categoryId" data-new="categories">${cats.map(c => opt(c, t.categoryId)).join('')}<option value="__new">+ New category…</option></select></label>
+      <label class="${txn ? 'field cat-party' : 'field d-only cat-party'}"><span>Party (who from / to)</span><select name="partyId" data-new="parties"><option value="">None</option>${parties.map(p => opt(p, t.partyId)).join('')}<option value="__new">+ New party…</option></select></label>
+      <label class="${txn ? 'field' : 'field d-only'}"><span>Date</span><input type="date" name="date" value="${t.date}" required></label>
       <label class="field"><span>Comment</span><input name="note" autocomplete="off" value="${esc(t.note)}"></label>
       <div class="row"><button class="btn primary">Save entry</button>${txn ? '<button type="button" class="btn danger" data-del>Delete entry</button>' : ''}</div>
     </form>`, el => {

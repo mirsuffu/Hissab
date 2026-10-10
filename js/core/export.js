@@ -57,12 +57,42 @@ export function toHTML(m, tpl = 'clean') {
 }
 
 export function download(name, mime, data) {
-  const a = document.createElement('a'); a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type: mime })); a.download = name; a.click();
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
+
 export function printHTML(html) {
-  const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;width:0;height:0;border:0'; document.body.append(f);
-  f.contentDocument.write(html); f.contentDocument.close(); f.onload = null;
-  setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 2000); }, 300);
+  try {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.append(f);
+    f.contentDocument.open();
+    f.contentDocument.write(html);
+    f.contentDocument.close();
+    setTimeout(() => {
+      try {
+        f.contentWindow.focus();
+        f.contentWindow.print();
+      } catch {
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(html); w.document.close(); w.print(); }
+      }
+      setTimeout(() => f.remove(), 3000);
+    }, 400);
+  } catch {
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.print(); }
+  }
 }
 
 export function toImage(m, tpl = 'clean') {

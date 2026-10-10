@@ -2,7 +2,7 @@
 import { logger } from './log.js';
 const KEY = 'hisaab.prefs';
 const timers = {};
-export const DEFAULTS = { mode: 'minimal', theme: 'auto', hue: 162, radius: 22, blur: 18, depth: 10, density: 1 };
+export const DEFAULTS = { mode: 'minimal', theme: 'auto', hue: 162, radius: 22, blur: 18, depth: 10, density: 1, fontSize: 15 };
 let P = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') };
 const mq = matchMedia('(prefers-color-scheme: dark)');
 
@@ -16,6 +16,7 @@ export function apply() {
   r.style.setProperty('--blur', P.blur + 'px');
   r.style.setProperty('--depth', P.depth + 'px');
   r.style.setProperty('--density', P.density);
+  r.style.setProperty('--base-font', (P.fontSize || 15) + 'px');
 }
 export function setPref(k, v) {
   P[k] = v; localStorage.setItem(KEY, JSON.stringify(P)); apply();

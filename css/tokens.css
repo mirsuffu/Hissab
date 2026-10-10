@@ -9,6 +9,7 @@
   --pos:hsl(156 50% 36%); --neg:hsl(9 68% 50%);
   --space:calc(16px * var(--density));
   --depth:10px;
+  --base-font:15px;
 }
 [data-theme="mist"]{
   --bg:#e3e8ee; --ink:#222a33; --ink-2:#5c6874;

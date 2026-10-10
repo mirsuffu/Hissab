@@ -114,6 +114,18 @@ export const store = {
 
   async addProfile(name) { const p = await put('profiles', { id: uid(), name }); logger.info('Person added', { name }); store.switchProfile(p.id); },
   switchProfile(id) { S.profileId = id; localStorage.setItem('hisaab.profile', id); logger.info('Switched person'); emit(); },
+  async deleteProfile(id) {
+    if (!id || id === S.profiles[0]?.id) throw new Error('Primary profile cannot be deleted');
+    const p = S.profiles.find(x => x.id === id);
+    if (!p) return;
+    const before = structuredClone(p);
+    await db.del('profiles', id);
+    S.profiles = S.profiles.filter(x => x.id !== id);
+    await record('profiles', before, { ...p, deleted: true });
+    sync.push('profiles', { ...p, deleted: true });
+    if (S.profileId === id) store.switchProfile(S.profiles[0].id);
+    else { logger.info('Profile deleted', { name: p.name }); emit(); }
+  },
 
   exportAll() { logger.info('Backup exported'); return JSON.stringify({ app: 'hisaab', v: 2, data: Object.fromEntries(db.KINDS.map(k => [k, S[k]])) }, null, 2); },
   async importAll(text) {

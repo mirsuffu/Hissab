@@ -18,6 +18,7 @@ import * as statements from './modules/statements.js';
 import * as recurring from './modules/recurring.js';
 import * as account from './modules/account.js';
 import { openAiAssistant } from './modules/ai.js';
+import { getAiConfig } from './core/ai.js';
 import { makeDraggable } from './core/draggable.js';
 
 // Route map
@@ -31,29 +32,17 @@ const routes = {
   manage:     { mod: manage,     label: 'Manage',     icon: 'manage' },
   audit:      { mod: audit,      label: 'Audit',      icon: 'audit' },
   logs:       { mod: logs,       label: 'Logs',       icon: 'logs' },
-  settings:   { mod: settings,   label: 'Settings',   icon: 'settings' },
+  settings:   { mod: settings,   label: 'Settings',   icon: 'settings', nav: false },
   account:    { mod: account,    label: 'Account',    icon: 'user', nav: false },
 };
 
-// Logical sections for Desktop Sidebar
+// Logical sections for Desktop Sidebar (Settings is accessed exclusively via top-left Gear icon)
 const DESKTOP_NAV = [
   { section: 'Overview', keys: ['home', 'funds', 'history'] },
   { section: 'Insights', keys: ['statements', 'recurring'] },
   { section: 'Connect', keys: ['chat'] },
-  { section: 'Tools', keys: ['manage', 'audit', 'logs', 'settings'] },
+  { section: 'Tools', keys: ['manage', 'audit', 'logs'] },
 ];
-
-// Core tabs for Mobile Bottom Bar
-const MOBILE_NAV_KEYS = ['home', 'funds', 'history', 'chat', 'settings'];
-
-const NAV_OF = {
-  manage: 'settings',
-  audit: 'settings',
-  logs: 'settings',
-  statements: 'settings',
-  recurring: 'settings',
-  account: 'settings'
-};
 
 let unread = 0;
 
@@ -83,12 +72,19 @@ function renderNav() {
     }
     nav.innerHTML = html;
   } else {
-    const on = routes[name]?.nav !== false && MOBILE_NAV_KEYS.includes(name) ? name : (NAV_OF[name] || 'home');
-    nav.innerHTML = MOBILE_NAV_KEYS.map(k => {
-      const r = routes[k];
-      const active = (k === on) ? 'on' : '';
-      return `<a href="#/${k}" class="${active}">${icon(r.icon)}<span>${r.label}</span>${k === 'chat' ? badge() : ''}</a>`;
-    }).join('');
+    // Mobile bottom navigation: 5 slots [Home] [Funds] [Docked Add Entry] [History] [Chat]
+    const homeOn = name === 'home' ? 'on' : '';
+    const fundsOn = name === 'funds' ? 'on' : '';
+    const historyOn = name === 'history' ? 'on' : '';
+    const chatOn = name === 'chat' ? 'on' : '';
+
+    nav.innerHTML = `
+      <a href="#/home" class="${homeOn}">${icon('home')}<span>Home</span></a>
+      <a href="#/funds" class="${fundsOn}">${icon('funds')}<span>Funds</span></a>
+      <button class="nav-add-btn" data-add aria-label="Add entry" title="Add entry">${icon('plus')}</button>
+      <a href="#/history" class="${historyOn}">${icon('history')}<span>History</span></a>
+      <a href="#/chat" class="${chatOn}">${icon('chat')}<span>Chat</span>${badge()}</a>
+    `;
   }
 }
 
@@ -102,13 +98,29 @@ function updateDp() {
     const initial = (s.user?.displayName?.[0] || s.profile?.name?.[0] || store.live().profile?.name?.[0] || 'H').toUpperCase();
     dp.innerHTML = `<span class="dp-initials">${esc(initial)}</span>`;
   }
-  dp.title = s.user ? `Account (${s.user.displayName || s.user.email || 'Online'})` : 'Account (Local)';
+
+  // Update online/offline ring status
+  if (!navigator.onLine) {
+    dp.classList.add('offline');
+  } else {
+    dp.classList.remove('offline');
+  }
+
+  dp.title = s.user ? `Account (${s.user.displayName || s.user.email || 'Online'})` : 'Account (Local / Guest)';
+}
+
+function updateAiFab() {
+  const fab = $('#fab-ai');
+  if (!fab) return;
+  const cfg = getAiConfig();
+  fab.hidden = !cfg.enabled;
 }
 
 function draw() {
   const { name, arg } = current();
   renderNav();
   updateDp();
+  updateAiFab();
   routes[name].mod.render($('#view'), arg);
 }
 
@@ -120,6 +132,26 @@ function setBadge() {
   }
 }
 
+// Online / Offline listeners for the status ring
+window.addEventListener('online', () => {
+  const dp = $('#user-dp');
+  if (dp) dp.classList.remove('offline');
+});
+window.addEventListener('offline', () => {
+  const dp = $('#user-dp');
+  if (dp) dp.classList.add('offline');
+});
+
+// Sync activity ring blinking animation (3 pulses)
+sync.onSyncActivity(() => {
+  const dp = $('#user-dp');
+  if (!dp) return;
+  dp.classList.remove('syncing');
+  void dp.offsetWidth; // retrigger CSS animation
+  dp.classList.add('syncing');
+  setTimeout(() => dp.classList.remove('syncing'), 1600);
+});
+
 // Signed in / out, sync, and the global unread counter.
 let syncUid = '', unwatch = null, seen = {};
 async function cloudChanged() {
@@ -130,6 +162,7 @@ async function cloudChanged() {
       await sync.connect(cloud.syncAdapter());
       await sync.pushAll(store.allDocs());
       await sync.pull((k, d) => store.applyRemote(k, d, false));
+      sync.schedule((k, d) => store.applyRemote(k, d, false));
       store.touch();
     }
   } catch (e) {
@@ -161,6 +194,7 @@ addEventListener('hashchange', draw);
 addEventListener('resize', renderNav);
 store.subscribe(() => {
   updateDp();
+  updateAiFab();
   if (current().name !== 'chat') draw();
 });
 
@@ -180,6 +214,7 @@ makeDraggable($('#fab-ai'), {
 initLock();
 await store.init();
 await store.runRecurring();
+sync.schedule((k, d) => store.applyRemote(k, d, false));
 draw();
 logger.info('App started', { mode: prefs().mode, theme: prefs().theme });
 pruneLogs();
