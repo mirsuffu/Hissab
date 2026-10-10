@@ -16,5 +16,9 @@ export const newFund = o => ({
 });
 export const newTxn = o => ({
   id: uid(), fundId: o.fundId, type: o.type || 'out', amount: o.amount || 0,
-  categoryId: o.categoryId || 'cat-general', partyId: o.partyId || '', note: o.note || '', date: o.date || today(), deleted: false, createdAt: Date.now(),
+  categoryId: o.categoryId || 'cat-general', partyId: o.partyId || '', note: o.note || '', date: o.date || today(),
+  deleted: false, createdAt: Date.now(),
+  ...(o.transferId ? { transferId: o.transferId } : {}),
+  ...(o.recurringId ? { recurringId: o.recurringId } : {}),
 });
+
