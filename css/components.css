@@ -255,3 +255,43 @@ details.audit ul{list-style:none;display:grid;gap:4px;margin-top:10px;font-size:
 .md-list{padding-left:18px;margin:4px 0}
 .md-p{margin:2px 0}
 
+/* ---- Metrics Dashboard & Liquid Charts ---- */
+.metric-card{display:grid;gap:10px;padding:16px}
+.metric-big-row{display:flex;align-items:baseline;gap:8px;margin:2px 0}
+.status-pill{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.08);letter-spacing:.03em}
+
+/* Fluid Liquid Animation Tank */
+@keyframes wave-drift {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.liquid-tank{position:relative;width:100%;height:74px;border-radius:calc(var(--radius)*.6);background:var(--bg);
+  box-shadow:inset 4px 4px 9px var(--sh-lo),inset -4px -4px 9px var(--sh-hi);overflow:hidden;margin:6px 0}
+.liquid-fill{position:absolute;bottom:0;left:0;right:0;transition:height .8s cubic-bezier(.2,.9,.3,1.2)}
+.liquid-wave{position:absolute;top:-10px;left:0;width:200%;height:18px;
+  background:radial-gradient(circle at 50% 0, transparent 42%, rgba(255,255,255,.3) 44%, transparent 48%),
+             radial-gradient(circle at 50% 100%, rgba(255,255,255,.18) 45%, transparent 50%);
+  background-size:28px 18px;animation:wave-drift 3s linear infinite}
+
+/* Pacing track */
+.pacing-track{height:10px;border-radius:99px;background:var(--bg);box-shadow:inset 3px 3px 6px var(--sh-lo),inset -3px -3px 6px var(--sh-hi);overflow:hidden;margin:8px 0}
+.pacing-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),hsl(var(--accent-h) 80% 60%));transition:width .6s ease}
+
+/* Donut Charts */
+.donut-flex-container{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:8px 0}
+.donut-chart-wrap{position:relative;display:grid;place-items:center;flex-shrink:0}
+.donut-svg{width:100%;height:100%;transform:rotate(0deg);overflow:visible}
+.donut-segment{transition:stroke-dasharray .6s ease, stroke-dashoffset .6s ease, stroke-width .2s ease;cursor:pointer}
+.donut-segment:hover{stroke-width:18}
+.donut-center-info{position:absolute;display:grid;place-items:center;text-align:center;pointer-events:none}
+.donut-val{font-size:1.05rem;font-weight:750;letter-spacing:-.02em;color:var(--ink)}
+.donut-lbl{font-size:.68rem;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em}
+
+/* Donut Legend */
+.donut-legend-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:calc(var(--radius)*.4);background:rgba(255,255,255,.03);font-size:.82rem}
+.donut-legend-chip{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.donut-legend-label{flex:1;color:var(--ink);font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.donut-legend-pct{font-weight:700;color:var(--accent);min-width:32px;text-align:right}
+.donut-legend-amt{font-size:.78rem;color:var(--ink-2);min-width:54px;text-align:right}
+
+

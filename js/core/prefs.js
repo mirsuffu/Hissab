@@ -2,7 +2,7 @@
 import { logger } from './log.js';
 const KEY = 'hisaab.prefs';
 const timers = {};
-export const DEFAULTS = { mode: 'minimal', theme: 'auto', hue: 162, radius: 22, blur: 18, depth: 10, density: 1, fontSize: 15 };
+export const DEFAULTS = { mode: 'minimal', theme: 'auto', hue: 162, radius: 22, blur: 18, depth: 10, density: 1, fontSize: 15, dupWindow: 6 };
 let P = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') };
 const mq = matchMedia('(prefers-color-scheme: dark)');
 

@@ -25,8 +25,14 @@ export function alerts(L, now = new Date()) {
     const mine = L.txns.filter(t => t.fundId === f.id && t.type === 'out' && !t.transferId), bal = fundBalance(f, L.txns);
     if (f.type !== 'held' && f.budget) {
       const s = sum(mine.filter(t => dateTs(t.date) >= a && dateTs(t.date) < b)), p = s / f.budget;
+      const day = Math.max(1, now.getDate()), dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const expectedRatio = day / dim;
       if (p >= 1) out.push({ key: `b:${f.id}:over:${mk}`, level: 'bad', text: `${f.name} is over its monthly budget by ${fmt(s - f.budget)}` });
       else if (p >= .8) out.push({ key: `b:${f.id}:80:${mk}`, level: 'warn', text: `${f.name} has used ${Math.round(p * 100)}% of its monthly budget` });
+      else if (p > expectedRatio * 1.25 && s > 0.2 * f.budget) {
+        const dailyBurn = s / day, daysLeft = Math.max(1, Math.round((f.budget - s) / dailyBurn));
+        out.push({ key: `b:${f.id}:pace:${mk}`, level: 'warn', text: `${f.name} burn velocity is high: at ${fmt(Math.round(dailyBurn))}/day, budget will exhaust in ${daysLeft} days` });
+      }
     }
     if (bal < 0) out.push({ key: `neg:${f.id}`, level: 'bad', text: `${f.name} is below zero (${fmt(bal)})` });
     else {

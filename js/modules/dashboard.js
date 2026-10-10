@@ -24,7 +24,13 @@ export function render(root) {
   notify(al);
   const month = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   root.innerHTML = `
-    <header class="top"><div><h1>Overview</h1><p class="muted">${month}</p></div></header>
+    <header class="top">
+      <div><h1>Overview</h1><p class="muted">${month}</p></div>
+      <a href="#/metrics" class="btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:.82rem;font-weight:650">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        <span>Metrics</span>
+      </a>
+    </header>
     <section class="hero raised">
       <div><span class="label">Your money</span><strong class="big">${fmt(sum(mine))}</strong></div>
       <div class="split d-only"><div><span class="label">In this month</span><b class="pos">${fmt(s.income)}</b></div><div><span class="label">Out this month</span><b>${fmt(s.expense)}</b></div></div>

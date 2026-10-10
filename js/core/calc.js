@@ -1,4 +1,5 @@
 import { dateTs } from './models.js';
+import { prefs } from './prefs.js';
 
 export const monthRange = (d = new Date()) =>
   [new Date(d.getFullYear(), d.getMonth(), 1).getTime(), new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()];
@@ -30,3 +31,21 @@ export function meter(f, txns, from, to) {
   const spent = mine.filter(t => { const s = dateTs(t.date); return t.type === 'out' && s >= from && s < to; }).reduce((a, t) => a + t.amount, 0);
   return { spent, total: f.budget, caption: 'of monthly budget' };
 }
+
+// Check for accidental duplicate transactions within the configured window (1 - 24 hours)
+export function findDuplicateTxn(L, { type, amount, fundId, id }) {
+  if (!amount || !fundId) return null;
+  const numAmt = Number(amount);
+  const winHours = Number(prefs().dupWindow ?? 6);
+  const maxAgeMs = winHours * 3600 * 1000;
+  const now = Date.now();
+
+  return L.txns.find(t => {
+    if (id && t.id === id) return false;
+    if (t.type !== type || t.fundId !== fundId) return false;
+    if (Math.abs(t.amount - numAmt) > 0.001) return false;
+    const tTime = t.createdAt || t.updatedAt || dateTs(t.date);
+    return (now - tTime) >= 0 && (now - tTime) <= maxAgeMs;
+  }) || null;
+}
+

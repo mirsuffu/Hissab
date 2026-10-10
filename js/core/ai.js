@@ -2,7 +2,7 @@
 // Runs locally by default (offline, zero-cost) or integrates with custom AI providers (Gemini, OpenRouter, Custom).
 import { store } from './store.js';
 import { fmt, toMinor, fromMinor, today, uid } from './models.js';
-import { monthRange, summary, fundBalance } from './calc.js';
+import { monthRange, summary, fundBalance, findDuplicateTxn } from './calc.js';
 import { alerts, forecast, byCategory } from './insights.js';
 import * as cloud from './cloud.js';
 import { sync } from './sync.js';
@@ -133,7 +133,15 @@ function localAssistantReply(prompt) {
       note: note.slice(0, 60)
     };
 
-    return `I've prepared this transaction for you. Please confirm to record it in your accounts:\n\n` +
+    const dup = findDuplicateTxn(L, draft);
+    let dupNotice = '';
+    if (dup) {
+      const minsAgo = Math.max(1, Math.round((Date.now() - (dup.createdAt || dup.updatedAt || new Date(dup.date).getTime())) / 60000));
+      const timeDesc = minsAgo < 60 ? `${minsAgo} min ago` : `${Math.round(minsAgo / 60)}h ago`;
+      dupNotice = `\n\n> ⚠️ **Duplicate Check:** An identical entry of **₹${amountNum}** on **${targetFund.name}** was already logged ${timeDesc}. Please verify before confirming.`;
+    }
+
+    return `I've prepared this transaction for you. Please confirm to record it in your accounts:${dupNotice}\n\n` +
       `ACTION:create_txn:${JSON.stringify(draft)}`;
   }
 

@@ -64,9 +64,14 @@ export function render(root) {
     <section class="card glass form"><h2>Manage</h2>
       <div class="rows">${link('#/funds', 'Funds', 'Add, edit, delete, restore')}${link('#/manage/categories', 'Categories', 'Add, rename, delete, restore')}${link('#/manage/parties', 'Parties', 'Add, rename, delete, restore')}${link('#/recurring', 'Recurring entries', 'Rent, subscriptions, allowances')}</div>
     </section>
-    <section class="card glass form"><h2>Alerts</h2>
+    <section class="card glass form"><h2>Alerts & Safety</h2>
       ${pill('data-notify', localStorage.getItem('hisaab.notify') === '1' && globalThis.Notification?.permission === 'granted', 'Notify me about budgets and unusual spends')}
       <p class="muted">Alerts always show on Home. Notifications appear while the app is open.</p>
+      <label class="field" style="margin-top:6px">
+        <span id="lbl-dup-window">Duplicate warning window (${p.dupWindow || 6} hours)</span>
+        <input type="range" data-pref="dupWindow" min="1" max="24" step="1" value="${p.dupWindow || 6}">
+      </label>
+      <p class="muted">Flags accidental identical entries logged on the same fund within 1 to 24 hours.</p>
     </section>
     <section class="card glass form"><h2>Security</h2>
       <p class="muted">${lock.hasPin() ? 'PIN lock is active.' : 'PIN lock is off.'} Protects app access on unattended devices.</p>
@@ -137,8 +142,16 @@ export function render(root) {
       </div>
     </section>`;
 
-  const date = () => new Date().toISOString().slice(0, 10);
-  root.oninput = e => { const k = e.target.dataset.pref; if (k) setPref(k, Number(e.target.value)); };
+  root.oninput = e => {
+    const k = e.target.dataset.pref;
+    if (k) {
+      setPref(k, Number(e.target.value));
+      if (k === 'dupWindow') {
+        const lbl = root.querySelector('#lbl-dup-window');
+        if (lbl) lbl.textContent = `Duplicate warning window (${e.target.value} hours)`;
+      }
+    }
+  };
   root.onchange = async e => {
     const t = e.target;
     try {

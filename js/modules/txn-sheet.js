@@ -2,6 +2,7 @@ import { store } from '../core/store.js';
 import { today, toMinor, fromMinor, fmt, uid } from '../core/models.js';
 import { GENERAL_ID } from '../config.js';
 import { openSheet, closeSheet, toast, esc } from '../ui.js';
+import { findDuplicateTxn } from '../core/calc.js';
 
 // Active items + the entry's own item if it was deleted later (so editing old entries never loses data).
 const withCurrent = (active, all, id) => { const c = all.find(x => x.id === id); return c && c.deleted ? [...active, c] : active; };
@@ -47,7 +48,8 @@ export function openTxnSheet({ txn = null, fundId = null } = {}) {
       el.querySelector('#toFund').hidden = !mv; el.querySelectorAll('.cat-party').forEach(x => (x.hidden = mv));
     };
     el.querySelectorAll('[name=type]').forEach(r => (r.onchange = typeSync));
-    el.querySelector('#tf').onsubmit = async e => {
+    const form = el.querySelector('#tf');
+    form.onsubmit = async e => {
       e.preventDefault();
       const f = new FormData(e.target), amount = toMinor(f.get('amount'));
       if (amount <= 0) return toast('Enter an amount above 0');
@@ -58,6 +60,27 @@ export function openTxnSheet({ txn = null, fundId = null } = {}) {
         await store.saveTxn({ fundId: to, type: 'in', amount, date: d, transferId: tid, note: `Transfer from ${nm[from]}${n ? ' · ' + n : ''}` });
         closeSheet(); return toast('Transfer saved');
       }
+
+      // Check for duplicate entry within the configured window
+      const freshL = store.live();
+      const dup = findDuplicateTxn(freshL, { type: f.get('type'), amount, fundId: f.get('fundId'), id: t?.id });
+      if (dup && !form._confirmedDup) {
+        form._confirmedDup = true;
+        const minsAgo = Math.max(1, Math.round((Date.now() - (dup.createdAt || dup.updatedAt || new Date(dup.date).getTime())) / 60000));
+        const timeDesc = minsAgo < 60 ? `${minsAgo} min ago` : `${Math.round(minsAgo / 60)}h ago`;
+        const fundName = freshL.allFunds.find(x => x.id === f.get('fundId'))?.name || 'this fund';
+        let banner = el.querySelector('#dup-warn');
+        if (!banner) {
+          banner = document.createElement('div');
+          banner.id = 'dup-warn';
+          banner.className = 'ai-confirm-done';
+          banner.style.cssText = 'color:var(--neg);background:hsl(9 68% 50% / .14);margin:8px 0;font-size:.82rem;font-weight:600';
+          form.querySelector('button[type=submit]').before(banner);
+        }
+        banner.innerHTML = `⚠️ Possible Duplicate: An identical entry of ${fmt(amount)} was logged ${timeDesc} on ${esc(fundName)}. Tap Save again to proceed.`;
+        return;
+      }
+
       await store.saveTxn({ ...t, type: f.get('type'), amount, fundId: f.get('fundId'), categoryId: f.get('categoryId'), partyId: f.get('partyId'), date: f.get('date'), note: f.get('note').trim() });
       closeSheet(); toast('Entry saved');
     };

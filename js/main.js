@@ -4,11 +4,12 @@ import * as cloud from './core/cloud.js';
 import { initLock } from './core/lock.js';
 import { logger, pruneLogs } from './core/log.js';
 import { prefs } from './core/prefs.js';
-import { $, icon, esc } from './ui.js';
+import { $, icon, esc, closeSheet } from './ui.js';
 import { openTxnSheet } from './modules/txn-sheet.js';
 import * as home from './modules/dashboard.js';
 import * as funds from './modules/funds.js';
 import * as history from './modules/history.js';
+import * as metrics from './modules/metrics.js';
 import * as chat from './modules/chat.js';
 import * as settings from './modules/settings.js';
 import * as manage from './modules/manage.js';
@@ -26,6 +27,7 @@ const routes = {
   home:       { mod: home,       label: 'Home',       icon: 'home' },
   funds:      { mod: funds,      label: 'Funds',      icon: 'funds' },
   history:    { mod: history,    label: 'History',    icon: 'history' },
+  metrics:    { mod: metrics,    label: 'Metrics',    icon: 'statements' },
   statements: { mod: statements, label: 'Statements', icon: 'statements' },
   recurring:  { mod: recurring,  label: 'Recurring',  icon: 'recurring' },
   chat:       { mod: chat,       label: 'Chat',       icon: 'chat' },
@@ -39,7 +41,7 @@ const routes = {
 // Logical sections for Desktop Sidebar (Settings is accessed exclusively via top-left Gear icon)
 const DESKTOP_NAV = [
   { section: 'Overview', keys: ['home', 'funds', 'history'] },
-  { section: 'Insights', keys: ['statements', 'recurring'] },
+  { section: 'Insights', keys: ['metrics', 'statements', 'recurring'] },
   { section: 'Connect', keys: ['chat'] },
   { section: 'Tools', keys: ['manage', 'audit', 'logs'] },
 ];
@@ -190,6 +192,28 @@ async function cloudChanged() {
 addEventListener('error', e => logger.error('Unhandled error', { message: e.message, at: `${e.filename}:${e.lineno}` }));
 addEventListener('unhandledrejection', e => logger.error('Unhandled promise rejection', { reason: String(e.reason) }));
 document.addEventListener('click', e => { if (e.target.closest('[data-add]')) openTxnSheet(); });
+
+// Global desktop keyboard shortcuts (Ctrl+K or / for AI, N or + for Add Entry, Esc to close)
+window.addEventListener('keydown', e => {
+  const isInput = e.target?.matches?.('input, textarea, select, [contenteditable]');
+  if (e.key === 'Escape') {
+    closeSheet();
+    return;
+  }
+  if (isInput) return;
+
+  if ((e.key === 'k' && (e.ctrlKey || e.metaKey)) || e.key === '/') {
+    e.preventDefault();
+    openAiAssistant();
+    return;
+  }
+
+  if (e.key === 'n' || e.key === 'N' || e.key === '+') {
+    e.preventDefault();
+    openTxnSheet();
+    return;
+  }
+});
 addEventListener('hashchange', draw);
 addEventListener('resize', renderNav);
 store.subscribe(() => {
