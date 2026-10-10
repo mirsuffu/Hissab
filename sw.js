@@ -1,5 +1,5 @@
 // Hisaab Service Worker: offline asset cache + notification click handling
-const CACHE_NAME = 'hisaab-shell-v4';
+const CACHE_NAME = 'hisaab-shell-v5';
 const ASSETS = [
   './',
   'index.html',

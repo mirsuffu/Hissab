@@ -32,30 +32,38 @@ export function openAiAssistant() {
     return toast('AI services are disabled in Settings');
   }
 
-  const providerLabel = cfg.provider === 'local' || !cfg.apiKey ? 'Local Intelligence' : `${cfg.provider.toUpperCase()} (${cfg.model || 'Default'})`;
+  const providerBadge = cfg.provider === 'local' || !cfg.apiKey 
+    ? 'Local' 
+    : (cfg.provider === 'gemini' ? 'Gemini' : (cfg.provider === 'openrouter' ? 'OpenRouter' : 'Custom'));
 
   openSheet(`
     <div class="ai-sheet">
       <div class="ai-header">
-        <div class="ai-title">
+        <div class="ai-brand">
           <span class="ai-sparkle">${icon('ai')}</span>
-          <div>
-            <h2>Financial Co-Pilot</h2>
-            <small class="muted"><span class="status-dot"></span>${providerLabel}</small>
+          <div class="ai-title-wrap">
+            <span class="ai-name">Munimji</span>
+            <span class="ai-badge">${esc(providerBadge)}</span>
           </div>
         </div>
-        <div class="row" style="gap:6px">
-          <button class="btn-micro" id="ai-new" title="Start fresh conversation">+ New</button>
-          <button class="btn-micro" id="ai-history" title="View previous chats">History</button>
-          <a class="btn-micro" href="#/settings" data-close title="Configure Provider">Settings</a>
+        <div class="ai-actions">
+          <button class="ai-action-btn" id="ai-new" title="Start fresh conversation">${icon('plus')}<span>New</span></button>
+          <button class="ai-action-btn icon-only" id="ai-history" title="View previous chats" aria-label="History">${icon('history')}</button>
+          <a class="ai-action-btn icon-only" href="#/settings" data-close title="Configure Provider" aria-label="Settings">${icon('gear')}</a>
+          <button class="ai-action-btn icon-only" data-close title="Close chat" aria-label="Close">${icon('x')}</button>
         </div>
       </div>
 
-      <div class="ai-quick-prompts">
-        <button class="pill-btn" data-q="How much money do I have across my funds?">💰 Total Balance</button>
-        <button class="pill-btn" data-q="How are my savings and expenses looking this month?">📊 Monthly Summary</button>
-        <button class="pill-btn" data-q="Do I have any budget alerts or unusual spends?">⚠️ Budget Alerts</button>
-        <button class="pill-btn" data-q="Give me a sharp first-principles financial tip.">💡 Financial Tip</button>
+      <div class="ai-preset-wrap">
+        <select id="ai-preset-select" class="ai-preset-select" aria-label="Quick Prompts">
+          <option value="" disabled selected>⚡ Quick Insights & Prompts…</option>
+          <option value="How much money do I have across my funds?">💰 Total Balance & Fund Balances</option>
+          <option value="How are my savings and expenses looking this month?">📊 Monthly Summary (In vs Out)</option>
+          <option value="Do I have any budget alerts or unusual spends?">⚠️ Budget & Unusual Spends</option>
+          <option value="Where am I spending the most money?">🏷️ Top Expense Categories</option>
+          <option value="Give me a sharp first-principles financial tip.">💡 First-Principles Accounting Tip</option>
+          <option value="Summary of recent transactions">📝 Recent Activity Recap</option>
+        </select>
       </div>
 
       <div id="ai-msgs" class="ai-msgs thread"></div>
@@ -145,9 +153,15 @@ export function openAiAssistant() {
       await sendQuery(text);
     };
 
-    el.querySelectorAll('[data-q]').forEach(btn => {
-      btn.onclick = () => sendQuery(btn.dataset.q);
-    });
+    const presetSelect = el.querySelector('#ai-preset-select');
+    if (presetSelect) {
+      presetSelect.onchange = () => {
+        const q = presetSelect.value;
+        if (!q) return;
+        presetSelect.selectedIndex = 0;
+        sendQuery(q);
+      };
+    }
 
     // Handle interactive Approve and Deny button clicks
     box.onclick = async e => {

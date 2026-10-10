@@ -17,8 +17,9 @@ export const icons = {
   logs: '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
   manage: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5"/><circle cx="4" cy="12" r="1.5"/><circle cx="4" cy="18" r="1.5"/>',
   user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  x: '<path d="M18 6L6 18M6 6l12 12"/>',
 };
-export const icon = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[n]}</svg>`;
+export const icon = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[n] || ''}</svg>`;
 
 export function toast(msg) {
   const t = $('#toast');
@@ -26,6 +27,7 @@ export function toast(msg) {
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200);
 }
 export function openSheet(html, onMount) {
+  document.body.classList.add('sheet-open');
   const r = $('#sheet-root');
   r.innerHTML = `<div class="scrim" data-close></div><section class="sheet glass" role="dialog" aria-modal="true">${html}</section>`;
   requestAnimationFrame(() => r.classList.add('open'));
@@ -35,6 +37,7 @@ export function openSheet(html, onMount) {
 }
 
 export function closeSheet(fromPopState = false) {
+  document.body.classList.remove('sheet-open');
   const r = $('#sheet-root');
   if (r.classList.contains('open') && !fromPopState && history.state?.hisaabSheet) {
     try { history.back(); } catch {}
@@ -47,6 +50,8 @@ window.addEventListener('popstate', () => {
   const r = $('#sheet-root');
   if (r?.classList.contains('open')) {
     closeSheet(true);
+  } else {
+    document.body.classList.remove('sheet-open');
   }
 });
 

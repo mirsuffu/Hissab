@@ -79,6 +79,8 @@
 .fab{position:fixed;top:0;left:0;z-index:25;border:0;cursor:grab;touch-action:none;user-select:none;
   display:flex;align-items:center;justify-content:center;will-change:transform}
 .fab.dragging{cursor:grabbing;opacity:.92;transform:scale(1.04)}
+body.sheet-open .fab,
+body:has(#sheet-root.open) .fab{display:none!important}
 
 /* Round Add Entry button (Desktop only, mobile uses center nav button) */
 .fab-add{width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;
@@ -145,16 +147,28 @@
 .ai-confirm-done{padding:8px 12px;border-radius:calc(var(--radius)*.5);background:hsl(156 50% 36% / .14);color:var(--pos);font-weight:650;font-size:.85rem}
 
 /* ---- AI Sheet & Co-Pilot Drawer ---- */
-.ai-sheet{display:grid;gap:14px}
-.ai-header{display:flex;justify-content:space-between;align-items:center}
-.ai-title{display:flex;align-items:center;gap:10px}
-.ai-sparkle svg{width:26px;height:26px;stroke:var(--accent);fill:none;stroke-width:2}
-.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pos);margin-right:6px}
-.ai-quick-prompts{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
-.pill-btn{border:0;background:var(--bg);padding:6px 12px;border-radius:99px;font-size:.78rem;font-weight:600;
-  cursor:pointer;white-space:nowrap;color:var(--ink-2);
-  box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi)}
-.pill-btn:hover{color:var(--accent)}
+.ai-sheet{display:grid;gap:10px}
+.ai-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--glass-line)}
+.ai-brand{display:flex;align-items:center;gap:8px}
+.ai-sparkle svg{width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2.2}
+.ai-title-wrap{display:flex;align-items:center;gap:6px}
+.ai-name{font-size:1.02rem;font-weight:750;letter-spacing:-.02em;color:var(--ink)}
+.ai-badge{font-size:.68rem;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+
+.ai-actions{display:flex;align-items:center;gap:5px}
+.ai-action-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 9px;border-radius:calc(var(--radius)*.5);border:0;background:var(--bg);color:var(--ink-2);cursor:pointer;font-size:.78rem;font-weight:650;box-shadow:2px 2px 5px var(--sh-lo),-2px -2px 5px var(--sh-hi);transition:.12s}
+.ai-action-btn:hover{color:var(--accent)}
+.ai-action-btn:active{box-shadow:inset 1px 1px 3px var(--sh-lo)}
+.ai-action-btn.icon-only{padding:5px 6px}
+.ai-action-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Preset Dropdown */
+.ai-preset-wrap{margin:2px 0 4px}
+.ai-preset-select{width:100%;border:0;outline:0;padding:8px 12px;border-radius:calc(var(--radius)*.55);
+  background:var(--bg);color:var(--ink);font-size:.82rem;font-weight:600;cursor:pointer;
+  box-shadow:inset 3px 3px 7px var(--sh-lo),inset -3px -3px 7px var(--sh-hi);transition:color .15s}
+.ai-preset-select:focus-visible{outline:2px solid var(--accent)}
+
 .ai-msgs{max-height:50vh;overflow-y:auto;padding-right:4px}
 .ai-msg .md-p{margin:4px 0}
 .ai-composer{display:flex;gap:8px;padding:8px;border-radius:calc(var(--radius)*.8)}
