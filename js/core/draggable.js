@@ -40,13 +40,16 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
   // Initialize position on screen
   const init = () => {
     const W = window.innerWidth, H = window.innerHeight;
+    const rect = el.getBoundingClientRect();
+    const width = rect.width || (pos.side === 'right' ? 140 : 56);
+    const height = rect.height || 56;
     const pad = 24;
-    const defaultX = pos.side === 'left' ? pad : (W - 70 - pad);
-    const defaultY = H - 100;
-    const x = pos.x !== undefined ? clamp(pos.x, 10, W - 70) : defaultX;
-    const y = pos.y !== undefined ? clamp(pos.y, 60, H - 90) : defaultY;
+    const defaultX = pos.side === 'left' ? pad : Math.max(pad, W - width - pad);
+    const defaultY = Math.max(64, H - height - (W < 900 ? 84 : 32));
+    const x = pos.x !== undefined ? clamp(pos.x, 10, W - width - 10) : defaultX;
+    const y = pos.y !== undefined ? clamp(pos.y, 60, H - height - 10) : defaultY;
     applyPos(x, y, false);
-    pos = { x, y, side: x < W / 2 ? 'left' : 'right' };
+    pos = { x, y, side: x + width / 2 < W / 2 ? 'left' : 'right' };
   };
 
   el.addEventListener('pointerdown', e => {
