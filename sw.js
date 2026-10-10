@@ -20,6 +20,7 @@ const ASSETS = [
   'js/core/insights.js',
   'js/core/lock.js',
   'js/core/log.js',
+  'js/core/markdown.js',
   'js/core/models.js',
   'js/core/prefs.js',
   'js/core/recurring.js',

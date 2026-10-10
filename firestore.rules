@@ -80,7 +80,7 @@ service cloud.firestore {
 
       allow delete: if false;
 
-      // Chat messages: members only, length capped at 2000 chars, immutable
+      // Chat messages: members only, text <= 10000 chars, optional inline doc content <= 100KB, immutable
       match /messages/{msgId} {
         function parentChat() {
           return get(/databases/$(database)/documents/chats/$(chatId)).data;
@@ -91,7 +91,11 @@ service cloud.firestore {
         allow create: if isSignedIn()
           && request.resource.data.from == request.auth.uid
           && request.resource.data.text is string
-          && request.resource.data.text.size() <= 2000
+          && request.resource.data.text.size() <= 10000
+          && (!('doc' in request.resource.data) || (
+            request.resource.data.doc.content is string &&
+            request.resource.data.doc.content.size() <= 100000
+          ))
           && (
             parentChat().status == 'accepted' ||
             (parentChat().status == 'pending' && parentChat().requester == request.auth.uid)

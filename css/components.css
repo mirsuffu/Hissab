@@ -114,3 +114,27 @@ details.audit ul{list-style:none;display:grid;gap:4px;margin-top:10px;font-size:
 @media(min-width:900px){.composer{bottom:16px}}
 #lock{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:var(--bg)}
 #lock .pin{text-align:center;font-size:1.6rem;letter-spacing:.4em;border:0;outline:0;padding:12px;border-radius:calc(var(--radius)*.6);background:var(--bg);box-shadow:inset 4px 4px 9px var(--sh-lo),inset -4px -4px 9px var(--sh-hi)}
+
+/* ---- inline document card & markdown styling ---- */
+.msg-doc{display:grid;gap:8px;padding:8px 10px;background:rgba(0,0,0,.08);border-radius:calc(var(--radius)*.55);border:1px solid rgba(255,255,255,.18);max-width:100%}
+.msg.them .msg-doc{background:rgba(255,255,255,.35);border-color:rgba(0,0,0,.08)}
+.msg-doc-hdr{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.18)}
+.msg.them .msg-doc-hdr{border-color:rgba(0,0,0,.08)}
+.msg-doc-actions{display:flex;gap:4px}
+.btn-micro{font-size:.72rem;padding:3px 8px;border-radius:99px;border:0;background:var(--bg);color:var(--ink);cursor:pointer;font-weight:600;box-shadow:2px 2px 5px var(--sh-lo),-2px -2px 5px var(--sh-hi);transition:.1s}
+.btn-micro:active{box-shadow:inset 1px 1px 3px var(--sh-lo)}
+.msg-doc-body{max-height:260px;overflow:auto;font-size:.85rem}
+.md-table-wrap{overflow-x:auto;max-width:100%;margin:4px 0;border-radius:calc(var(--radius)*.4)}
+.md-table{width:100%;border-collapse:collapse;font-size:.82rem;background:rgba(255,255,255,.2)}
+.md-table th{background:rgba(0,0,0,.15);color:inherit;padding:5px 8px;text-align:left;font-weight:650;white-space:nowrap}
+.msg.them .md-table th{background:rgba(0,0,0,.06)}
+.md-table td{padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}
+.msg.them .md-table td{border-bottom-color:rgba(0,0,0,.06)}
+.md-pre{background:rgba(0,0,0,.2);padding:8px 10px;border-radius:calc(var(--radius)*.4);overflow-x:auto;font-size:.78rem;font-family:monospace}
+.msg.them .md-pre{background:rgba(0,0,0,.06)}
+.md-inline-code{font-family:monospace;font-size:.85em;padding:1px 4px;border-radius:4px;background:rgba(0,0,0,.15)}
+.msg.them .md-inline-code{background:rgba(0,0,0,.08)}
+.md-quote{border-left:3px solid currentColor;padding-left:8px;opacity:.85;margin:4px 0}
+.md-list{padding-left:18px;margin:4px 0}
+.md-p{margin:2px 0}
+

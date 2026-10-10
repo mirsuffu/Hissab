@@ -1,5 +1,7 @@
-// Simple 1:1 chat (UPI-style). People are found by unique ID or name; strangers must be accepted first. No groups.
+// Simple 1:1 chat (UPI-style). Zero-cost architecture: documents and markdown sent directly via Firestore.
 import * as cloud from '../core/cloud.js';
+import { renderMarkdown, csvToMarkdown } from '../core/markdown.js';
+import { download, printHTML } from '../core/export.js';
 import { esc, toast } from '../ui.js';
 
 let stop = [];
@@ -57,10 +59,10 @@ async function thread(root, otherUid) {
   const me = cloud.state().user.uid, id = cloud.chatId(me, otherUid);
   let other; try { other = await cloud.getUser(otherUid); } catch { other = null; }
   if (!other) { toast('That person could not be found'); location.hash = '#/chat'; return; }
-  let chat = null, file = null;
+  let chat = null, docPayload = null, currentMsgs = [];
   root.innerHTML = `<header class="top"><div><a class="muted" href="#/chat">‹ Chats</a><h1>${esc(other.name)}</h1><p class="muted">@${esc(other.handle)}</p></div><button class="btn" data-block>Block</button></header>
     <div id="banner"></div><div id="msgs" class="thread"></div>
-    <form id="mf" class="composer glass"><input type="file" hidden id="pick" accept="image/*,.pdf,.txt,.csv,.docx,.xlsx"><button type="button" class="btn" data-attach aria-label="Attach file">＋</button>
+    <form id="mf" class="composer glass"><input type="file" hidden id="pick" accept=".csv,.tsv,.txt,.md,.json,.doc,.xls,.html"><button type="button" class="btn" data-attach aria-label="Attach document" title="Attach CSV, statement or document">＋</button>
       <input name="text" placeholder="Message" autocomplete="off" aria-label="Message"><button class="btn primary">Send</button></form><p id="chip" class="muted" hidden></p>`;
   const $ = s => root.querySelector(s);
   const banner = () => {
@@ -74,15 +76,34 @@ async function thread(root, otherUid) {
   banner();
   stop.push(cloud.watchChat(id, c => { chat = c; banner(); }));
   stop.push(cloud.watchMessages(id, msgs => {
+    currentMsgs = msgs;
     const box = $('#msgs');
     box.innerHTML = msgs.map(m => {
-      const a = m.attachment, mineMsg = m.from === me;
-      const body = a ? (a.type.startsWith('image/') ? `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="${esc(a.name)}" loading="lazy"></a>` : `<a class="file" href="${esc(a.url)}" target="_blank" rel="noopener">📎 ${esc(a.name)}<small>${size(a.size)}</small></a>`) : '';
-      return `<div class="msg ${mineMsg ? 'me' : 'them'}">${body}${m.text ? `<span>${esc(m.text)}</span>` : ''}<small>${time(m.ts)}</small></div>`;
+      const mineMsg = m.from === me;
+      let docHtml = '';
+      if (m.doc) {
+        const isCsv = m.doc.name.endsWith('.csv') || m.doc.name.endsWith('.tsv') || m.doc.type === 'text/csv';
+        const formatted = isCsv ? csvToMarkdown(m.doc.content) : m.doc.content;
+        docHtml = `
+          <div class="msg-doc">
+            <div class="msg-doc-hdr">
+              <span>📄 <b>${esc(m.doc.name)}</b> <small class="muted">${size(m.doc.size || m.doc.content.length)}</small></span>
+              <div class="msg-doc-actions">
+                <button type="button" class="btn-micro" data-copy-doc="${m.id}" title="Copy content">Copy</button>
+                <button type="button" class="btn-micro" data-download-doc="${m.id}" title="Download file">Save</button>
+                <button type="button" class="btn-micro" data-print-doc="${m.id}" title="Print / PDF">Print</button>
+              </div>
+            </div>
+            <div class="msg-doc-body">${renderMarkdown(formatted)}</div>
+          </div>`;
+      }
+      const textHtml = m.text ? `<div class="msg-text">${renderMarkdown(m.text)}</div>` : '';
+      return `<div class="msg ${mineMsg ? 'me' : 'them'}">${docHtml}${textHtml}<small>${time(m.ts)}</small></div>`;
     }).join('') || '<div class="empty glass">Say hello 👋</div>';
     box.lastElementChild?.scrollIntoView({ block: 'end' });
     if (msgs.some(m => m.from !== me)) cloud.markRead(id);
   }));
+
   root.onclick = async e => {
     const t = e.target;
     try {
@@ -91,17 +112,51 @@ async function thread(root, otherUid) {
       else if (t.closest('[data-decline]')) await cloud.respond(id, false);
       else if (t.closest('[data-block]')) { if (confirm(`Block ${other.name}? They won’t be able to message you.`)) await cloud.block(id); }
       else if (t.closest('[data-unblock]')) await cloud.unblock(id);
+      else if (t.closest('[data-copy-doc]')) {
+        const mid = t.closest('[data-copy-doc]').dataset.copyDoc;
+        const msg = currentMsgs.find(m => m.id === mid);
+        if (msg?.doc?.content) { await navigator.clipboard?.writeText(msg.doc.content); toast('Document copied'); }
+      }
+      else if (t.closest('[data-download-doc]')) {
+        const mid = t.closest('[data-download-doc]').dataset.downloadDoc;
+        const msg = currentMsgs.find(m => m.id === mid);
+        if (msg?.doc) download(msg.doc.name, msg.doc.type || 'text/plain', msg.doc.content);
+      }
+      else if (t.closest('[data-print-doc]')) {
+        const mid = t.closest('[data-print-doc]').dataset.printDoc;
+        const msg = currentMsgs.find(m => m.id === mid);
+        if (msg?.doc) {
+          const isCsv = msg.doc.name.endsWith('.csv') || msg.doc.name.endsWith('.tsv') || msg.doc.type === 'text/csv';
+          const content = isCsv ? csvToMarkdown(msg.doc.content) : msg.doc.content;
+          const html = `<!doctype html><meta charset="utf-8"><title>${esc(msg.doc.name)}</title>
+            <style>body{font:14px system-ui,sans-serif;margin:32px;color:#1c2430}table{border-collapse:collapse;width:100%;margin-top:16px}th{background:#2f9e7a;color:#fff;text-align:left;padding:8px 10px}td{border-bottom:1px solid #e6eaee;padding:8px 10px}</style>
+            <h1>${esc(msg.doc.name)}</h1>${renderMarkdown(content)}`;
+          printHTML(html);
+        }
+      }
     } catch (err) { toast(err.message || 'Something went wrong'); }
   };
-  $('#pick').onchange = e => {
+
+  $('#pick').onchange = async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-    const bad = cloud.validateFile(f); if (bad) return toast(bad);
-    file = f; const c = $('#chip'); c.hidden = false; c.textContent = `📎 ${f.name} (${size(f.size)}) — tap Send`;
+    const bad = cloud.validateDoc(f); if (bad) return toast(bad);
+    try {
+      const content = await f.text();
+      docPayload = { name: f.name, type: f.type || 'text/plain', size: f.size, content };
+      const c = $('#chip'); c.hidden = false;
+      c.textContent = `📄 ${f.name} (${size(f.size)}) — tap Send`;
+    } catch {
+      toast('Could not read document');
+    }
   };
+
   $('#mf').onsubmit = async e => {
     e.preventDefault(); const input = e.target.text, btn = e.target.querySelector('.primary'); btn.disabled = true;
-    try { await cloud.send(other, input.value, file); input.value = ''; file = null; $('#chip').hidden = true; }
-    catch (err) { toast(err.message || 'Couldn’t send'); }
+    try {
+      await cloud.send(other, input.value, docPayload);
+      input.value = ''; docPayload = null; $('#chip').hidden = true;
+    } catch (err) { toast(err.message || 'Couldn’t send'); }
     btn.disabled = false;
   };
 }
+

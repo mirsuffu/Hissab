@@ -4,7 +4,7 @@ import { firebaseConfig } from '../firebase-config.js';
 import { logger } from './log.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2';
-let F = null, auth, db, storage, me = null, profile = null, booting = null;
+let F = null, auth, db, me = null, profile = null, booting = null;
 const subs = new Set();
 const emit = () => subs.forEach(f => f());
 
@@ -13,22 +13,17 @@ export const onChange = f => (subs.add(f), () => subs.delete(f));
 export const refresh = emit;
 export const state = () => ({ configured: configured(), ready: !!F, user: me, profile });
 
-export const LIMITS = {
-  image: 5 * 1024 * 1024, file: 10 * 1024 * 1024, imageEdge: 1600,
-  types: { 'image/jpeg': 1, 'image/png': 1, 'image/webp': 1, 'application/pdf': 1, 'text/plain': 1, 'text/csv': 1,
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 1, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 1 },
-};
+export const MAX_DOC_SIZE = 100 * 1024; // 100 KB max for inline text/data docs
 
 // Resolves after the first auth state is known (signed in or not).
 export function init() {
   if (!configured()) return Promise.resolve();
   return (booting ??= (async () => {
-    const [A, Au, Fs, St] = await Promise.all(['app', 'auth', 'firestore', 'storage'].map(m => import(`${SDK}/firebase-${m}.js`)));
+    const [A, Au, Fs] = await Promise.all(['app', 'auth', 'firestore'].map(m => import(`${SDK}/firebase-${m}.js`)));
     const app = A.initializeApp(firebaseConfig);
     auth = Au.getAuth(app);
     db = Fs.initializeFirestore(app, { localCache: Fs.persistentLocalCache({ tabManager: Fs.persistentMultipleTabManager() }) });
-    storage = St.getStorage(app);
-    F = { A, Au, Fs, St };
+    F = { A, Au, Fs };
     await new Promise(res => { let first = true; Au.onAuthStateChanged(auth, async u => { me = u; profile = u ? await loadProfile(u.uid).catch(() => null) : null; first ? ((first = false), res()) : emit(); }); });
     logger.info('Cloud connected', { signedIn: !!me });
   })());
@@ -90,48 +85,37 @@ export function watchMessages(id, cb) {
   return onSnapshot(query(collection(db, 'chats', id, 'messages'), orderBy('ts', 'desc'), limit(100)), s => cb(s.docs.map(d => ({ id: d.id, ...d.data() })).reverse()), () => cb([]));
 }
 
-export function validateFile(file) {
-  if (!LIMITS.types[file.type]) return 'That file type isn’t allowed. Use images, PDF, TXT, CSV, DOCX or XLSX.';
-  if (!file.type.startsWith('image/') && file.size > LIMITS.file) return 'Files can be up to 10 MB.';
-  if (file.type.startsWith('image/') && file.size > 40 * 1024 * 1024) return 'That image is too large.';
+export function validateDoc(file) {
+  if (file.size > MAX_DOC_SIZE) return 'Document must be under 100 KB.';
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const allowed = ['csv', 'tsv', 'txt', 'md', 'json', 'doc', 'xls', 'html'];
+  if (!allowed.includes(ext) && !file.type.startsWith('text/')) {
+    return 'Please attach a text-based document (CSV, TXT, Markdown, JSON).';
+  }
   return '';
 }
-async function shrink(file) {
-  if (!file.type.startsWith('image/')) return file;
-  const bmp = await createImageBitmap(file), k = Math.min(1, LIMITS.imageEdge / Math.max(bmp.width, bmp.height));
-  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .82));
-  if (blob.size > LIMITS.image) throw new Error('Image is still over 5 MB after compression.');
-  return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
-}
-async function upload(id, msgId, file) {
-  const f = await shrink(file), { ref, uploadBytes, getDownloadURL } = F.St, path = `chat-files/${id}/${msgId}/${f.name.replace(/[^\w.-]+/g, '_')}`;
-  await uploadBytes(ref(storage, path), f, { contentType: f.type });
-  return { name: f.name, type: f.type, size: f.size, path, url: await getDownloadURL(ref(storage, path)) };
-}
 
-export async function send(other, text, file) {
-  need(); const { doc, collection, getDoc, setDoc, writeBatch, increment } = F.Fs, id = chatId(me.uid, other.uid), ref = doc(db, 'chats', id);
-  let snap = await getDoc(ref), chat = snap.exists() ? snap.data() : null, t = (text || '').trim();
-  if (!t && !file) throw new Error('Type a message or attach a file');
+export async function send(other, text, docPayload = null) {
+  need(); const { doc, collection, getDoc, writeBatch, increment } = F.Fs, id = chatId(me.uid, other.uid), ref = doc(db, 'chats', id);
+  const snap = await getDoc(ref), chat = snap.exists() ? snap.data() : null, t = (text || '').trim();
+  if (!t && !docPayload) throw new Error('Type a message or attach a document');
   if (chat?.status === 'blocked') throw new Error('This chat is blocked');
   if (chat?.status === 'pending') throw new Error(chat.requester === me.uid ? 'Waiting for them to accept your request' : 'Accept the request to reply');
   const now = Date.now();
+  const lastText = t || (docPayload ? `📄 ${docPayload.name}` : '');
+  const last = { text: lastText.slice(0, 80), ts: now, from: me.uid }, batch = writeBatch(db);
   if (!chat) {
-    await setDoc(ref, {
+    batch.set(ref, {
       members: [me.uid, other.uid].sort(), status: 'pending', requester: me.uid, createdAt: now, updatedAt: now,
-      lastMessage: { text: t || (file ? `📎 ${file.name}`.slice(0, 80) : ''), ts: now, from: me.uid },
-      unread: { [me.uid]: 0, [other.uid]: 1 },
+      lastMessage: last, unread: { [me.uid]: 0, [other.uid]: 1 },
       names: { [me.uid]: profile.name, [other.uid]: other.name },
       handles: { [me.uid]: profile.handle, [other.uid]: other.handle }
     });
-    chat = { status: 'pending', requester: me.uid };
+  } else {
+    batch.update(ref, { updatedAt: now, lastMessage: last, [`unread.${other.uid}`]: increment(1) });
   }
-  const msgRef = doc(collection(db, 'chats', id, 'messages')), attachment = file ? await upload(id, msgRef.id, file) : null;
-  const last = { text: t || `📎 ${attachment.name}`.slice(0, 80), ts: now, from: me.uid }, batch = writeBatch(db);
-  batch.update(ref, { updatedAt: now, lastMessage: last, [`unread.${other.uid}`]: increment(1) });
-  batch.set(msgRef, { from: me.uid, text: t, ts: now, ...(attachment && { attachment }) });
+  const msgRef = doc(collection(db, 'chats', id, 'messages'));
+  batch.set(msgRef, { from: me.uid, text: t, ts: now, ...(docPayload && { doc: docPayload }) });
   await batch.commit();
 }
 export const respond = (id, accept) => (need(), F.Fs.updateDoc(F.Fs.doc(db, 'chats', id), accept ? { status: 'accepted' } : { status: 'blocked', blockedBy: me.uid }));
