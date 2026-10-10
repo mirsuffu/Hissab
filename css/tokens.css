@@ -1,0 +1,26 @@
+/* ===== Design tokens: every look-and-feel value lives here.
+   Users customise these at runtime from Settings (see js/core/prefs.js). ===== */
+:root{
+  --accent-h:162; --accent-s:52%;
+  --radius:22px; --blur:18px; --density:1;
+  --font:"Manrope","Avenir Next",ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --accent:hsl(var(--accent-h) var(--accent-s) 42%);
+  --accent-soft:hsl(var(--accent-h) var(--accent-s) 42% / .16);
+  --pos:hsl(156 50% 36%); --neg:hsl(9 68% 50%);
+  --space:calc(16px * var(--density));
+  --depth:10px;
+}
+[data-theme="mist"]{
+  --bg:#e3e8ee; --ink:#222a33; --ink-2:#5c6874;
+  --sh-hi:rgba(255,255,255,.92); --sh-lo:rgba(136,152,171,.5);
+  --glass:rgba(255,255,255,.42); --glass-line:rgba(255,255,255,.75);
+  --blob-a:hsl(var(--accent-h) 65% 72%); --blob-b:#b7c4ff; --blob-c:#ffd2c4;
+}
+[data-theme="ink"]{
+  --bg:#1a1f26; --ink:#e8edf3; --ink-2:#8d98a6;
+  --sh-hi:rgba(255,255,255,.055); --sh-lo:rgba(0,0,0,.6);
+  --glass:rgba(38,46,58,.45); --glass-line:rgba(255,255,255,.12);
+  --blob-a:hsl(var(--accent-h) 55% 32%); --blob-b:#2b3a73; --blob-c:#5a2f3d;
+  --pos:hsl(156 55% 52%); --neg:hsl(9 75% 62%);
+  --accent:hsl(var(--accent-h) var(--accent-s) 56%);
+}

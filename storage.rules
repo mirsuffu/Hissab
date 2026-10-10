@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /chat-files/{chatId}/{msgId}/{filename} {
+      function chatData() {
+        return firestore.get(/databases/(default)/documents/chats/$(chatId)).data;
+      }
+
+      function isMember() {
+        return request.auth != null && (request.auth.uid in chatData().members);
+      }
+
+      function canUpload() {
+        return request.auth != null
+          && (request.auth.uid in chatData().members)
+          && (
+            chatData().status == 'accepted' ||
+            (chatData().status == 'pending' && chatData().requester == request.auth.uid)
+          );
+      }
+
+      allow read: if isMember();
+
+      allow write: if canUpload()
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('^(image/(jpeg|png|webp)|application/pdf|text/plain|text/csv|application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)$');
+
+      allow delete: if false;
+    }
+  }
+}
