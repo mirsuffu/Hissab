@@ -74,8 +74,8 @@ service cloud.firestore {
           (request.resource.data.status == 'blocked' && request.resource.data.blockedBy == request.auth.uid) ||
           // Only the blocker can unblock
           (chatData().status == 'blocked' && request.resource.data.status == 'accepted' && chatData().blockedBy == request.auth.uid) ||
-          // Metadata updates (last message, unread counters, timestamps)
-          (request.resource.data.members == chatData().members && request.resource.data.requester == chatData().requester)
+          // Metadata updates (last message, unread counters, timestamps) on accepted chats
+          (chatData().status == 'accepted' && request.resource.data.status == 'accepted' && request.resource.data.members == chatData().members && request.resource.data.requester == chatData().requester)
         );
 
       allow delete: if false;
@@ -98,7 +98,7 @@ service cloud.firestore {
           ))
           && (
             parentChat().status == 'accepted' ||
-            (parentChat().status == 'pending' && parentChat().requester == request.auth.uid)
+            (parentChat().status == 'pending' && parentChat().requester == request.auth.uid && parentChat().createdAt == request.resource.data.ts)
           );
 
         allow update, delete: if false;

@@ -7,6 +7,38 @@ const signed = t => (t.type === 'in' ? t.amount : -t.amount);
 
 export const fundBalance = (f, txns) => f.opening + txns.filter(t => t.fundId === f.id).reduce((a, t) => a + signed(t), 0);
 
+export const potBalance = (p, txns) => (p.opening || 0) + txns.filter(t => t.potId === p.id).reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0);
+
+export function potVelocity(p, balance) {
+  const target = p.targetAmount || 0;
+  const remaining = Math.max(0, target - balance);
+  const pct = target > 0 ? Math.min(100, Math.round((balance / target) * 100)) : 100;
+  if (target > 0 && balance >= target) {
+    return { pct: 100, remaining: 0, status: 'achieved', label: 'Target Reached 🏆' };
+  }
+  if (!p.targetDate) {
+    return { pct, remaining, status: 'open', label: `${pct}% completed` };
+  }
+  const targetTs = new Date(p.targetDate + 'T23:59:59').getTime();
+  const diffDays = Math.ceil((targetTs - Date.now()) / (1000 * 3600 * 24));
+  if (diffDays < 0) {
+    return { pct, remaining, daysLeft: 0, status: 'overdue', label: `Overdue by ${Math.abs(diffDays)}d · ${pct}% reached` };
+  }
+  const monthsLeft = Math.max(0.2, diffDays / 30.4);
+  const reqPerMonth = Math.round(remaining / monthsLeft);
+  return {
+    pct,
+    remaining,
+    daysLeft: diffDays,
+    reqPerMonth,
+    status: 'on_track',
+    label: `Need ${fmt(reqPerMonth)}/mo (${diffDays}d left)`
+  };
+}
+
+export const suspenseBalance = (txns, suspenseFundId = 'fund-suspense') =>
+  txns.filter(t => t.fundId === suspenseFundId || t.isSuspense).reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0);
+
 // Gain/Loss = surplus or deficit. Money held for others is NOT income/expense for you.
 export function summary(funds, txns, from, to) {
   const own = new Set(funds.filter(f => f.type !== 'held').map(f => f.id));

@@ -16,12 +16,27 @@ function notifySync() {
 
 let syncTimer = null;
 
+export const syncState = () => {
+  if (!adapter) return { code: 'local', label: 'Local only', icon: '💻', pending: 0 };
+  if (!navigator.onLine) return { code: 'offline', label: 'Offline', icon: '⚠️', pending: read().length };
+  const p = read().length;
+  if (p > 0) return { code: 'pending', label: `${p} pending`, icon: '⏳', pending: p };
+  return { code: 'synced', label: 'Synced', icon: '✓', pending: 0 };
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { notifySync(); sync.flush(); });
+  window.addEventListener('offline', () => { notifySync(); });
+}
+
 export const sync = {
   status: () => (!adapter ? 'Local only' : navigator.onLine ? `Synced (${read().length} pending)` : 'Offline'),
+  state: syncState,
   interval: () => Number(localStorage.getItem('hisaab.syncInterval') ?? 0),
   setInterval: sec => { localStorage.setItem('hisaab.syncInterval', sec); },
   onSyncActivity: fn => syncListeners.add(fn),
   async connect(a) { adapter = a; logger.info('Cloud sync connected'); await sync.flush(); },
+  disconnect() { adapter = null; clearTimeout(syncTimer); notifySync(); logger.info('Cloud sync disconnected'); },
   push(kind, doc) {
     if (!adapter) return;
     write([...read().filter(x => !same(x, { kind, doc })), { kind, doc }]);
@@ -60,4 +75,6 @@ export const sync = {
     }, sec * 1000);
   }
 };
-addEventListener('online', () => sync.flush());
+if (typeof window !== 'undefined') {
+  addEventListener('online', () => sync.flush());
+}

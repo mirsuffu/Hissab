@@ -49,7 +49,7 @@ export function openAiAssistant() {
         <div class="ai-actions">
           <button class="ai-action-btn" id="ai-new" title="Start fresh conversation">${icon('plus')}<span>New</span></button>
           <button class="ai-action-btn icon-only" id="ai-history" title="View previous chats" aria-label="History">${icon('history')}</button>
-          <a class="ai-action-btn icon-only" href="#/settings" data-close title="Configure Provider" aria-label="Settings">${icon('gear')}</a>
+          <button type="button" class="ai-action-btn icon-only" id="ai-settings-btn" title="Configure Provider" aria-label="Settings">${icon('gear')}</button>
           <button class="ai-action-btn icon-only" data-close title="Close chat" aria-label="Close">${icon('x')}</button>
         </div>
       </div>
@@ -238,5 +238,10 @@ export function openAiAssistant() {
         };
       });
     };
+
+    el.querySelector('#ai-settings-btn')?.addEventListener('click', () => {
+      closeSheet(true);
+      location.hash = '#/settings';
+    });
   });
 }

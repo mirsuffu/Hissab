@@ -4,8 +4,8 @@ import * as cloud from './core/cloud.js';
 import { initLock } from './core/lock.js';
 import { logger, pruneLogs } from './core/log.js';
 import { prefs } from './core/prefs.js';
-import { $, icon, esc, closeSheet } from './ui.js';
-import { openTxnSheet } from './modules/txn-sheet.js';
+import { $, icon, esc, closeSheet, toast, openSheet } from './ui.js';
+import { openTxnSheet, openQuickExpense } from './modules/txn-sheet.js';
 import * as home from './modules/dashboard.js';
 import * as funds from './modules/funds.js';
 import * as history from './modules/history.js';
@@ -18,14 +18,21 @@ import * as logs from './modules/logs.js';
 import * as statements from './modules/statements.js';
 import * as recurring from './modules/recurring.js';
 import * as account from './modules/account.js';
-import { openAiAssistant } from './modules/ai.js';
-import { getAiConfig } from './core/ai.js';
+import * as pots from './modules/pots.js';
+import * as suspense from './modules/suspense.js';
+import { getAiConfig } from './core/prefs.js';
+const openAiAssistant = async () => {
+  const mod = await import('./modules/ai.js');
+  mod.openAiAssistant();
+};
 import { makeDraggable } from './core/draggable.js';
+import { initSoundListener } from './core/sound.js';
 
 // Route map
 const routes = {
   home:       { mod: home,       label: 'Home',       icon: 'home' },
   funds:      { mod: funds,      label: 'Funds',      icon: 'funds' },
+  pots:       { mod: pots,       label: 'Pots',       icon: 'pot' },
   history:    { mod: history,    label: 'History',    icon: 'history' },
   metrics:    { mod: metrics,    label: 'Metrics',    icon: 'statements' },
   statements: { mod: statements, label: 'Statements', icon: 'statements' },
@@ -34,16 +41,17 @@ const routes = {
   manage:     { mod: manage,     label: 'Manage',     icon: 'manage' },
   audit:      { mod: audit,      label: 'Audit',      icon: 'audit' },
   logs:       { mod: logs,       label: 'Logs',       icon: 'logs' },
+  suspense:   { mod: suspense,   label: 'Suspense',   icon: 'suspense', nav: false },
   settings:   { mod: settings,   label: 'Settings',   icon: 'settings', nav: false },
   account:    { mod: account,    label: 'Account',    icon: 'user', nav: false },
 };
 
 // Logical sections for Desktop Sidebar (Settings is accessed exclusively via top-left Gear icon)
 const DESKTOP_NAV = [
-  { section: 'Overview', keys: ['home', 'funds', 'history'] },
+  { section: 'Overview', keys: ['home', 'funds', 'pots', 'history'] },
   { section: 'Insights', keys: ['metrics', 'statements', 'recurring'] },
   { section: 'Connect', keys: ['chat'] },
-  { section: 'Tools', keys: ['manage', 'audit', 'logs'] },
+  { section: 'Tools', keys: ['manage', 'audit', 'logs', 'suspense'] },
 ];
 
 let unread = 0;
@@ -61,6 +69,17 @@ function renderNav() {
   const nav = $('#nav');
   if (!nav) return;
 
+  const currentMode = isDesktop ? 'desktop' : 'mobile';
+  if (nav.dataset.mode === currentMode) {
+    for (const a of nav.querySelectorAll('a[href]')) {
+      const href = a.getAttribute('href') || '';
+      const key = href.replace(/^#\//, '').split('/')[0];
+      a.classList.toggle('on', key === name);
+    }
+    return;
+  }
+
+  nav.dataset.mode = currentMode;
   if (isDesktop) {
     let html = '';
     for (const sec of DESKTOP_NAV) {
@@ -94,10 +113,12 @@ function updateDp() {
   const s = cloud.state();
   const dp = $('#user-dp');
   if (!dp) return;
-  if (s.user?.photoURL) {
-    dp.innerHTML = `<img src="${esc(s.user.photoURL)}" alt="${esc(s.user.displayName || 'Account')}" referrerpolicy="no-referrer">`;
+  const p = store.live().profile;
+  const avatarSrc = p?.dp || s.user?.photoURL;
+  if (avatarSrc) {
+    dp.innerHTML = `<img src="${esc(avatarSrc)}" alt="Avatar" referrerpolicy="no-referrer">`;
   } else {
-    const initial = (s.user?.displayName?.[0] || s.profile?.name?.[0] || store.live().profile?.name?.[0] || 'H').toUpperCase();
+    const initial = (p?.name?.[0] || s.profile?.name?.[0] || s.user?.displayName?.[0] || 'H').toUpperCase();
     dp.innerHTML = `<span class="dp-initials">${esc(initial)}</span>`;
   }
 
@@ -111,6 +132,73 @@ function updateDp() {
   dp.title = s.user ? `Account (${s.user.displayName || s.user.email || 'Online'})` : 'Account (Local / Guest)';
 }
 
+function updateSyncChip() {
+  const chip = $('#sync-chip');
+  if (!chip) return;
+  const s = sync.state();
+  chip.className = `sync-chip ${s.code}`;
+  chip.title = `Sync: ${s.label} (Tap for details)`;
+  const textEl = chip.querySelector('.sync-chip-text');
+  if (textEl) textEl.textContent = s.label;
+}
+sync.onSyncActivity(updateSyncChip);
+
+$('#sync-chip')?.addEventListener('click', () => {
+  const s = sync.state();
+  const desc = s.code === 'synced'
+    ? 'All transactions and records are securely synced! ☁️✨'
+    : (s.code === 'pending'
+      ? `You have ${s.pending} record(s) queued for sync as soon as network permits! ⏳⚡`
+      : (s.code === 'offline'
+        ? 'Currently offline. All records are safely preserved in local IndexedDB and will sync once reconnected. 📶🛡️'
+        : 'Running in local mode. Sign in to your Google Account to enable automatic cloud backup! 💻🔐'));
+  openSheet(`
+    <div style="display:grid;gap:14px;text-align:center;padding:8px 0">
+      <div style="font-size:2.4rem">${s.icon}</div>
+      <h2 style="margin:0">Sync Status: ${s.label}</h2>
+      <p style="margin:0;color:var(--ink-2);font-size:.9rem;line-height:1.4">${desc}</p>
+      <div class="row" style="justify-content:center;margin-top:6px">
+        <button type="button" class="btn primary" id="btn-sync-flush">⚡ Sync Now</button>
+        <a href="#/account" class="btn" id="btn-sync-acct">Account Details</a>
+      </div>
+    </div>
+  `, sheetEl => {
+    sheetEl.querySelector('#btn-sync-flush')?.addEventListener('click', async () => {
+      closeSheet();
+      toast('Flushing sync queue… hold onto your chai! ☕🚀');
+      await sync.flush();
+      updateSyncChip();
+      toast('Sync pipeline refreshed! ✨');
+    });
+    sheetEl.querySelector('#btn-sync-acct')?.addEventListener('click', () => closeSheet());
+  });
+});
+
+// Native app feel: disable context menu globally, except on inputs/textareas
+document.addEventListener('contextmenu', e => {
+  if (!e.target.closest('input, textarea')) e.preventDefault();
+});
+
+// Native app feel: block desktop & mobile zoom
+window.addEventListener('wheel', e => {
+  if (e.ctrlKey) e.preventDefault();
+}, { passive: false });
+
+window.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) {
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+// Native app feel: block mobile pinch-to-zoom while preserving single-touch gestures & pull-to-refresh
+document.addEventListener('touchstart', e => {
+  if (e.touches && e.touches.length > 1) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 function updateAiFab() {
   const fab = $('#fab-ai');
   if (!fab) return;
@@ -118,12 +206,26 @@ function updateAiFab() {
   fab.hidden = !cfg.enabled;
 }
 
-function draw() {
+function renderCurrentView() {
   const { name, arg } = current();
   renderNav();
   updateDp();
   updateAiFab();
   routes[name].mod.render($('#view'), arg);
+}
+
+function draw(isNavigation = false) {
+  if (isNavigation && document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    try {
+      const vt = document.startViewTransition(() => renderCurrentView());
+      vt.ready?.catch?.(() => {});
+      vt.finished?.catch?.(() => {});
+    } catch {
+      renderCurrentView();
+    }
+  } else {
+    renderCurrentView();
+  }
 }
 
 function setBadge() {
@@ -166,6 +268,9 @@ async function cloudChanged() {
       await sync.pull((k, d) => store.applyRemote(k, d, false));
       sync.schedule((k, d) => store.applyRemote(k, d, false));
       store.touch();
+    } else if (!s.user && syncUid) {
+      syncUid = '';
+      sync.disconnect();
     }
   } catch (e) {
     logger.warn('Cloud sync setup failed', { error: String(e) });
@@ -195,6 +300,7 @@ document.addEventListener('click', e => { if (e.target.closest('[data-add]')) op
 
 // Global desktop keyboard shortcuts (Ctrl+K or / for AI, N or + for Add Entry, Esc to close)
 window.addEventListener('keydown', e => {
+  if (document.getElementById('lock')) return;
   const isInput = e.target?.matches?.('input, textarea, select, [contenteditable]');
   if (e.key === 'Escape') {
     closeSheet();
@@ -208,17 +314,78 @@ window.addEventListener('keydown', e => {
     return;
   }
 
-  if (e.key === 'n' || e.key === 'N' || e.key === '+') {
+  if (e.key === 'N') {
+    e.preventDefault();
+    openQuickExpense();
+    return;
+  }
+
+  if (e.key === 'n' || e.key === '+') {
     e.preventDefault();
     openTxnSheet();
     return;
   }
 });
-addEventListener('hashchange', draw);
-addEventListener('resize', renderNav);
+addEventListener('hashchange', () => draw(true));
+let lastWidth = window.innerWidth;
+addEventListener('resize', () => {
+  const newWidth = window.innerWidth;
+  const crossedBreakpoint = (lastWidth < 900 && newWidth >= 900) || (lastWidth >= 900 && newWidth < 900);
+  if (crossedBreakpoint) {
+    lastWidth = newWidth;
+    const nav = $('#nav');
+    if (nav) nav.dataset.mode = '';
+    renderNav();
+  }
+});
+function syncWithNativeBridge() {
+  if (!window.AndroidBridge) return;
+  try {
+    const { funds, txns } = store.live();
+    const mine = (funds || []).filter(f => f.type !== 'held');
+    const totalBal = mine.reduce((acc, f) => acc + (f.opening || 0), 0) +
+      (txns || []).filter(t => {
+        const f = (funds || []).find(x => x.id === t.fundId);
+        return f && f.type !== 'held';
+      }).reduce((acc, t) => acc + (t.kind === 'income' ? t.amount : -t.amount), 0);
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayExp = (txns || [])
+      .filter(t => t.date === todayIso && t.kind === 'expense')
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const fmtBal = '₹' + Math.round(totalBal).toLocaleString('en-IN');
+    const fmtExp = '₹' + Math.round(todayExp).toLocaleString('en-IN');
+
+    if (window.AndroidBridge.updateNotification) {
+      window.AndroidBridge.updateNotification(fmtExp, fmtBal);
+    }
+    if (window.AndroidBridge.updateWidget) {
+      window.AndroidBridge.updateWidget(JSON.stringify({
+        totalBalance: fmtBal,
+        todayExpense: fmtExp
+      }));
+    }
+  } catch (err) {
+    console.warn('Native bridge sync error:', err);
+  }
+}
+
+window.hisaabAction = function(action) {
+  if (action === 'add_expense' || action === 'add_txn' || action === 'add') {
+    openTxnSheet();
+  } else if (action === 'quick_expense' || action === 'quick') {
+    openQuickExpense();
+  } else if (action === 'ai') {
+    openAiAssistant();
+  }
+};
+
 store.subscribe(() => {
   updateDp();
+  updateSyncChip();
   updateAiFab();
+  syncWithNativeBridge();
   if (current().name !== 'chat') draw();
 });
 
@@ -226,7 +393,8 @@ store.subscribe(() => {
 makeDraggable($('#fab-add'), {
   id: 'add',
   defaultPos: { side: 'left' },
-  onClick: () => openTxnSheet()
+  onClick: () => openTxnSheet(),
+  onLongPress: () => openQuickExpense()
 });
 
 makeDraggable($('#fab-ai'), {
@@ -236,12 +404,38 @@ makeDraggable($('#fab-ai'), {
 });
 
 initLock();
+initSoundListener();
 await store.init();
-await store.runRecurring();
+updateSyncChip();
+const recCount = await store.runRecurring();
+if (recCount > 0) {
+  toast(`📅 Auto-pilot alert: ${recCount} recurring ${recCount === 1 ? 'entry was' : 'entries were'} posted! Like clockwork ⏰✨`);
+}
 sync.schedule((k, d) => store.applyRemote(k, d, false));
 draw();
+syncWithNativeBridge();
+
+// Handle URL query parameter launch action if launched via web deep link
+const launchAction = new URLSearchParams(window.location.search).get('action');
+if (launchAction) {
+  setTimeout(() => window.hisaabAction?.(launchAction), 350);
+}
+
 logger.info('App started', { mode: prefs().mode, theme: prefs().theme });
 pruneLogs();
+
+// Check recurring on tab refocus (overnight session date rollover)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) store.runRecurring().catch(() => {});
+});
+
+// Notify user when a new Service Worker version activates
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    import('./ui.js').then(ui => ui.toast('Hisaab updated · Tap to refresh'));
+  });
+}
+
 if (cloud.configured()) {
   cloud.onChange(cloudChanged);
   cloud.init().then(cloudChanged).catch(e => logger.warn('Cloud init failed', { error: String(e) }));

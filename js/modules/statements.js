@@ -1,7 +1,7 @@
 import { store } from '../core/store.js';
-import { today } from '../core/models.js';
+import { today, fmt } from '../core/models.js';
 import { FIELDS, DEFAULT_FIELDS, buildModel, toCSV, toText, toHTML, toImage, download, printHTML } from '../core/export.js';
-import { esc, toast } from '../ui.js';
+import { esc, toast, promptModal } from '../ui.js';
 
 const KEY = 'hisaab.export', PKEY = 'hisaab.presets';
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
@@ -15,7 +15,7 @@ export function render(root, arg) {
   const L = store.live(), m = buildModel(L, O), presets = load(PKEY, []);
   const list = (items, all) => [['', all], ...items.map(i => [i.id, i.name + (i.deleted ? ' (deleted)' : '')])];
   root.innerHTML = `
-    <header class="top"><div><a class="muted" href="#/settings">‹ Settings</a><h1>Statements</h1></div></header>
+    <header class="top"><div><a class="muted" href="javascript:history.length>1?history.back():location.hash='#/home'" style="cursor:pointer">‹ Back</a><h1>Statements</h1></div></header>
     <section class="card glass form">
       ${inp('title', 'Title', 'text', O.title)}
       ${sel(['period', 'Period'], [['day', 'Daily'], ['month', 'Monthly'], ['year', 'Yearly'], ['range', 'Custom range'], ['all', 'All time']], O.period)}
@@ -32,7 +32,7 @@ export function render(root, arg) {
       <label class="pill"><input type="checkbox" data-t ${O.totals ? 'checked' : ''}><span>Show totals</span></label>
     </section>
     <section class="card glass form"><h2>Export</h2>
-      <p class="muted">${m.totals.count} entries · Received ${m.totals.income / 100} · Spent ${m.totals.expense / 100}</p>
+      <p class="muted">${m.totals.count} entries · Received ${fmt(m.totals.income)} · Spent ${fmt(m.totals.expense)}</p>
       <div class="row">${[['pdf', 'PDF'], ['xls', 'Excel'], ['doc', 'Word'], ['csv', 'CSV'], ['txt', 'TXT'], ['png', 'Image'], ['copy', 'Copy text']].map(([k, v]) => `<button class="btn" data-out="${k}">${v}</button>`).join('')}</div>
       <div class="row"><button class="btn" data-save>Save as preset</button>${presets.map((p, i) => `<span class="row"><button class="btn" data-load="${i}">${esc(p.name)}</button><button class="btn danger" data-del="${i}" aria-label="Delete preset">×</button></span>`).join('')}</div>
     </section>`;
@@ -50,16 +50,21 @@ export function render(root, arg) {
     const model = buildModel(store.live(), O), name = `${O.title}-${model.subtitle.split(' · ')[0]}`.replace(/[^\w.-]+/g, '_');
     if (b.dataset.out) {
       const k = b.dataset.out;
-      if (!model.totals.count) return toast('No entries match these filters');
+      if (!model.totals.count) return toast('No entries match these filters! Your criteria yielded zero coins 🪙🏜️');
       if (k === 'csv') download(name + '.csv', 'text/csv', toCSV(model));
       else if (k === 'txt') download(name + '.txt', 'text/plain', toText(model));
       else if (k === 'xls') download(name + '.xls', 'application/vnd.ms-excel', toHTML(model, 'clean'));
       else if (k === 'doc') download(name + '.doc', 'application/msword', toHTML(model, O.template));
       else if (k === 'pdf') printHTML(toHTML(model, O.template));
       else if (k === 'png') download(name + '.png', 'image/png', await toImage(model, O.template));
-      else if (k === 'copy') { await navigator.clipboard?.writeText(toText(model)); toast('Copied'); }
+      else if (k === 'copy') { await navigator.clipboard?.writeText(toText(model)); toast('Statement copied to clipboard! Ready to paste & ponder 📋🧐'); }
     } else if ('save' in b.dataset) {
-      const n = prompt('Preset name')?.trim(); if (!n) return;
+      const n = await promptModal({
+        title: 'Save Statement Preset',
+        message: 'Enter a name for this custom statement filter preset:',
+        placeholder: 'e.g. Monthly Tax Report'
+      });
+      if (!n) return;
       localStorage.setItem(PKEY, JSON.stringify([...presets.filter(p => p.name !== n), { name: n, o: O }])); render(root, arg);
     } else if (b.dataset.load) { O = { ...O, ...presets[b.dataset.load].o }; keep(); render(root, arg); }
     else if (b.dataset.del) { localStorage.setItem(PKEY, JSON.stringify(presets.filter((_, i) => i !== Number(b.dataset.del)))); render(root, arg); }

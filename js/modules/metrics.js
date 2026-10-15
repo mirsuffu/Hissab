@@ -111,7 +111,7 @@ export function render(root) {
     </header>
 
     <!-- Liquid Ratios Summary Grid -->
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+    <div class="grid grid-metrics">
       <!-- 1. Operating Savings Rate -->
       <section class="card glass metric-card">
         <div class="top">

@@ -2,7 +2,7 @@
 // Supports mouse and touch pointer events, differentiates tap vs drag,
 // and snaps smoothly to the nearest viewport wall on release.
 
-export function makeDraggable(el, { id, defaultPos, onClick }) {
+export function makeDraggable(el, { id, defaultPos, onClick, onLongPress }) {
   if (!el) return;
   const KEY = `hisaab.fab_${id}`;
   let pos = null;
@@ -10,6 +10,7 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
   if (!pos) pos = { ...defaultPos };
 
   let isDragging = false, startX = 0, startY = 0, initialX = 0, initialY = 0, hasMoved = false;
+  let pressTimer = null, isLongPress = false;
 
   const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
 
@@ -19,17 +20,20 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
   };
 
   const snapToWall = (curX, curY) => {
-    const W = window.innerWidth, H = window.innerHeight;
+    if (document.body.classList.contains('sheet-open')) return;
     const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const W = window.innerWidth, H = window.innerHeight;
     const pad = 20;
     const snapLeft = pad;
     const snapRight = Math.max(pad, W - rect.width - pad);
 
     // Closest horizontal wall
     const targetX = (curX + rect.width / 2 < W / 2) ? snapLeft : snapRight;
-    // Clamp vertical bounds
+    // Clamp vertical bounds (safe distance from mobile bottom navigation)
     const topLimit = 64;
-    const bottomLimit = Math.max(topLimit, H - rect.height - (W < 900 ? 84 : 28));
+    const bottomLimit = Math.max(topLimit, H - rect.height - (W < 900 ? 110 : 28));
     const targetY = clamp(curY, topLimit, bottomLimit);
 
     applyPos(targetX, targetY, true);
@@ -45,16 +49,19 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
     const height = rect.height || 56;
     const pad = 24;
     const defaultX = pos.side === 'left' ? pad : Math.max(pad, W - width - pad);
-    const defaultY = Math.max(64, H - height - (W < 900 ? 84 : 32));
+    const bottomLimit = Math.max(64, H - height - (W < 900 ? 110 : 32));
+    const defaultY = bottomLimit;
     const x = pos.x !== undefined ? clamp(pos.x, 10, W - width - 10) : defaultX;
-    const y = pos.y !== undefined ? clamp(pos.y, 60, H - height - 10) : defaultY;
+    const y = pos.y !== undefined ? clamp(pos.y, 60, bottomLimit) : defaultY;
     applyPos(x, y, false);
     pos = { x, y, side: x + width / 2 < W / 2 ? 'left' : 'right' };
+    el.classList.add('ready');
   };
 
   el.addEventListener('pointerdown', e => {
     isDragging = true;
     hasMoved = false;
+    isLongPress = false;
     startX = e.clientX;
     startY = e.clientY;
     const rect = el.getBoundingClientRect();
@@ -63,6 +70,16 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
     el.setPointerCapture?.(e.pointerId);
     el.style.transition = 'none';
     el.classList.add('dragging');
+
+    if (onLongPress) {
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => {
+        if (!hasMoved && isDragging) {
+          isLongPress = true;
+          onLongPress();
+        }
+      }, 500);
+    }
   });
 
   el.addEventListener('pointermove', e => {
@@ -70,6 +87,7 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
     const dx = e.clientX - startX, dy = e.clientY - startY;
     if (!hasMoved && Math.hypot(dx, dy) > 5) {
       hasMoved = true;
+      clearTimeout(pressTimer);
     }
     if (hasMoved) {
       const nextX = initialX + dx;
@@ -79,6 +97,7 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
   });
 
   const onEnd = e => {
+    clearTimeout(pressTimer);
     if (!isDragging) return;
     isDragging = false;
     el.classList.remove('dragging');
@@ -95,17 +114,22 @@ export function makeDraggable(el, { id, defaultPos, onClick }) {
   el.addEventListener('pointerup', onEnd);
   el.addEventListener('pointercancel', onEnd);
   el.addEventListener('click', e => {
-    if (hasMoved) {
+    clearTimeout(pressTimer);
+    if (hasMoved || isLongPress) {
       e.preventDefault();
       e.stopPropagation();
+      isLongPress = false;
       return;
     }
     onClick?.(e);
   });
 
   window.addEventListener('resize', () => {
+    if (document.body.classList.contains('sheet-open')) return;
     const rect = el.getBoundingClientRect();
-    snapToWall(rect.left, rect.top);
+    if (rect.width && rect.height) {
+      snapToWall(rect.left, rect.top);
+    }
   });
 
   // Delay init so DOM layout is computed

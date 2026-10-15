@@ -12,7 +12,7 @@ export function render(root) {
   const val = (k, v) => v === null || v === '' || v === undefined ? '—' : MONEY.has(k) ? fmt(v) : REFS.has(k) ? (names[v] || v) : typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v);
   const all = store.auditTrail().filter(r => filter === 'all' || r.entity === filter), recs = all.slice(0, 300);
   root.innerHTML = `
-    <header class="top"><div><a class="muted" href="#/settings">‹ Settings</a><h1>Audit trail</h1><p class="muted">Every change to your data. Records can’t be edited or removed.</p></div></header>
+    <header class="top"><div><a class="muted" href="javascript:history.length>1?history.back():location.hash='#/home'" style="cursor:pointer">‹ Back</a><h1>Audit trail</h1><p class="muted">Every change to your data. Records can’t be edited or removed.</p></div></header>
     <label class="field"><span>Show</span><select data-f>${Object.entries(ENT).map(([k, v]) => `<option value="${k}" ${k === filter ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
     <div class="rows">${recs.map(r => `
       <details class="audit"><summary>

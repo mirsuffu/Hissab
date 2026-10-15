@@ -2,7 +2,8 @@
 import { store } from '../core/store.js';
 import { fmt, toMinor, fromMinor, today } from '../core/models.js';
 import { GENERAL_ID } from '../config.js';
-import { esc, openSheet, closeSheet, toast } from '../ui.js';
+import { esc, openSheet, closeSheet, toast, confirmModal } from '../ui.js';
+import { sanitizeAmountInput } from './txn-sheet.js';
 
 const EVERY = { daily: 'Every day', weekly: 'Every week', monthly: 'Every month' };
 const opt = (x, sel) => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.name)}</option>`;
@@ -10,7 +11,7 @@ const opt = (x, sel) => `<option value="${x.id}" ${x.id === sel ? 'selected' : '
 export function render(root) {
   const L = store.live(), name = Object.fromEntries(L.allFunds.map(f => [f.id, f.name]));
   root.innerHTML = `
-    <header class="top"><div><a class="muted" href="#/settings">‹ Settings</a><h1>Recurring</h1><p class="muted">Entries that repeat on their own.</p></div><button class="btn primary" data-new>Add</button></header>
+    <header class="top"><div><a class="muted" href="javascript:history.length>1?history.back():location.hash='#/home'" style="cursor:pointer">‹ Back</a><h1>Recurring</h1><p class="muted">Entries that repeat on their own.</p></div><button class="btn primary" data-new>Add</button></header>
     <div class="rows">${L.recurring.map(r => `<button class="row-item" data-edit="${r.id}"><span>${esc(r.note || 'Recurring entry')}<small>${EVERY[r.every]} · next ${r.active ? r.next : 'paused'} · ${esc(name[r.fundId] || '')}</small></span><span class="amt ${r.type === 'in' ? 'pos' : ''}">${r.type === 'in' ? '+' : '−'}${fmt(r.amount)}</span></button>`).join('') || '<div class="empty glass">Nothing recurring yet.</div>'}</div>`;
   root.onclick = e => {
     if (e.target.closest('[data-new]')) sheet(null);
@@ -20,10 +21,10 @@ export function render(root) {
 
 function sheet(r) {
   const L = store.live();
-  if (!L.funds.length) { toast('Create a fund first'); location.hash = '#/funds'; return; }
+  if (!L.funds.length) { toast('Hold on! You need a fund first before setting recurring autopilot 🐎🪙'); location.hash = '#/funds'; return; }
   const d = r || { type: 'out', amount: 0, fundId: L.funds[0].id, categoryId: GENERAL_ID, partyId: '', note: '', every: 'monthly', next: today(), active: true };
   openSheet(`
-    <h2>${r ? 'Edit recurring entry' : 'New recurring entry'}</h2>
+    <h2>${r ? 'Edit recurring entry ⏰' : 'New recurring entry ⏰'}</h2>
     <form id="rf" class="form">
       <div class="seg"><label><input type="radio" name="type" value="out" ${d.type === 'out' ? 'checked' : ''}><span>Spent</span></label><label><input type="radio" name="type" value="in" ${d.type === 'in' ? 'checked' : ''}><span>Received</span></label></div>
       <label class="field"><span>Amount</span><input name="amount" inputmode="decimal" required value="${d.amount ? fromMinor(d.amount) : ''}"></label>
@@ -37,13 +38,27 @@ function sheet(r) {
       <div class="row"><button class="btn primary">Save</button>${r ? '<button type="button" class="btn danger" data-del>Delete</button>' : ''}</div>
       <p class="muted">Entries already created are never changed or removed.</p>
     </form>`, el => {
+    sanitizeAmountInput(el.querySelector('[name=amount]'));
     el.querySelector('#rf').onsubmit = async e => {
       e.preventDefault(); const f = new FormData(e.target), amount = toMinor(f.get('amount'));
-      if (amount <= 0) return toast('Enter an amount above 0');
+      if (amount <= 0) return toast('C’mon, zero paise needs no accounting! Enter a real amount 😉');
       const next = f.get('next');
       await store.saveRecurring({ ...d, type: f.get('type'), amount, fundId: f.get('fundId'), categoryId: f.get('categoryId'), partyId: f.get('partyId'), every: f.get('every'), next, day: Number(next.slice(8)), note: f.get('note').trim(), active: f.get('active') === 'on' });
-      await store.runRecurring(); closeSheet(); toast('Saved');
+      await store.runRecurring();
+      closeSheet();
+      toast('Autopilot engaged! This rule will run like clockwork ⏰🤖');
     };
-    el.querySelector('[data-del]')?.addEventListener('click', async () => { if (!confirm('Delete this recurring entry? Past entries stay.')) return; await store.removeRecurring(r); closeSheet(); toast('Deleted'); });
+    el.querySelector('[data-del]')?.addEventListener('click', async () => {
+      const ok = await confirmModal({
+        title: 'Delete Recurring Entry? 🛑',
+        message: 'Delete this recurring entry? Past entries remain safe.',
+        confirmText: 'Delete',
+        danger: true
+      });
+      if (!ok) return;
+      await store.removeRecurring(r);
+      closeSheet();
+      toast('Autopilot disengaged! No more auto-entries for this one 🛑🤖');
+    });
   });
 }

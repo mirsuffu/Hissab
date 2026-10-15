@@ -1,10 +1,12 @@
 // Hisaab Service Worker: offline asset cache + notification click handling
-const CACHE_NAME = 'hisaab-shell-v6';
+const CACHE_NAME = 'hisaab-shell-v15';
 const ASSETS = [
   './',
   'index.html',
   'manifest.json',
-  'icon.svg',
+  'logo-48.png',
+  'logo-192.png',
+  'logo-512.png',
   'css/tokens.css',
   'css/base.css',
   'css/components.css',
@@ -13,6 +15,7 @@ const ASSETS = [
   'js/main.js',
   'js/ui.js',
   'js/core/ai.js',
+  'js/core/biometric.js',
   'js/core/calc.js',
   'js/core/cloud.js',
   'js/core/crypto.js',
@@ -26,6 +29,7 @@ const ASSETS = [
   'js/core/models.js',
   'js/core/prefs.js',
   'js/core/recurring.js',
+  'js/core/sound.js',
   'js/core/store.js',
   'js/core/sync.js',
   'js/modules/account.js',

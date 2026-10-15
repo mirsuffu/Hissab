@@ -16,6 +16,9 @@ export const icons = {
   audit: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
   logs: '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
   manage: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5"/><circle cx="4" cy="12" r="1.5"/><circle cx="4" cy="18" r="1.5"/>',
+  pot: '<path d="M6 10a6 6 0 1 0 12 0c0-2.5-1.8-3.5-3-4.5V4H9v1.5C7.8 6.5 6 7.5 6 10zM8 20h8"/>',
+  reconcile: '<circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="21"/><path d="M17 8H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  suspense: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
   user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   x: '<path d="M18 6L6 18M6 6l12 12"/>',
 };
@@ -43,16 +46,129 @@ export function closeSheet(fromPopState = false) {
     try { history.back(); } catch {}
   }
   r.classList.remove('open');
-  setTimeout(() => { if (!r.classList.contains('open')) r.innerHTML = ''; }, 260);
+  setTimeout(() => { if (!r.classList.contains('open')) r.innerHTML = ''; }, 300);
 }
 
-window.addEventListener('popstate', () => {
-  const r = $('#sheet-root');
-  if (r?.classList.contains('open')) {
-    closeSheet(true);
-  } else {
-    document.body.classList.remove('sheet-open');
-  }
-});
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => {
+    const r = $('#sheet-root');
+    if (r?.classList.contains('open')) {
+      closeSheet(true);
+    } else {
+      document.body.classList.remove('sheet-open');
+    }
+  });
+}
 
 export const dot = hue => `<span class="dot" style="background:hsl(${hue} 60% 52%)"></span>`;
+
+/* ---- In-App Native Custom Dialogs (Zero Browser Defaults, Dedicated Layer) ---- */
+function getDialogRoot() {
+  let d = document.getElementById('dialog-root');
+  if (!d) {
+    d = document.createElement('div');
+    d.id = 'dialog-root';
+    document.body.appendChild(d);
+  }
+  return d;
+}
+
+export function confirmModal({ title = 'Confirm', message = 'Are you sure?', confirmText = 'Confirm', cancelText = 'Cancel', danger = false } = {}) {
+  return new Promise(resolve => {
+    let resolved = false;
+    let onKey = null;
+    const finish = val => {
+      if (resolved) return;
+      resolved = true;
+      if (onKey) window.removeEventListener('keydown', onKey);
+      root.classList.remove('open');
+      setTimeout(() => { if (!root.classList.contains('open')) root.innerHTML = ''; }, 250);
+      resolve(val);
+    };
+
+    const alertClass = danger ? 'modal-alert' : '';
+    const btnClass = danger ? 'btn danger' : 'btn primary';
+
+    root.innerHTML = `
+      <div class="scrim dialog-scrim" data-cancel style="position:fixed;inset:0;background:rgba(10,14,20,.45);z-index:70;opacity:1"></div>
+      <div class="dialog-box card glass ${alertClass}" role="dialog" aria-modal="true" style="position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:75;width:min(380px, 92vw);padding:22px 20px;box-shadow:0 14px 40px rgba(0,0,0,0.4);border-radius:calc(var(--radius)*1.1)">
+        <h2 class="dialog-title" style="margin:0 0 6px;font-size:1.2rem">${esc(title)}</h2>
+        <p class="dialog-msg" style="margin:0 0 18px;font-size:.9rem;line-height:1.45">${esc(message)}</p>
+        <div class="dialog-actions" style="display:flex;justify-content:flex-end;gap:10px">
+          <button type="button" class="btn" data-cancel>${esc(cancelText)}</button>
+          <button type="button" class="${btnClass}" data-ok autofocus>${esc(confirmText)}</button>
+        </div>
+      </div>
+    `;
+    requestAnimationFrame(() => root.classList.add('open'));
+
+    root.querySelector('[data-ok]')?.addEventListener('click', () => finish(true));
+    root.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => finish(false)));
+    onKey = e => {
+      if (e.key === 'Escape') finish(false);
+      else if (e.key === 'Enter') finish(true);
+    };
+    window.addEventListener('keydown', onKey);
+  });
+}
+
+export function promptModal({ title = 'Input', message = '', placeholder = '', defaultValue = '', confirmText = 'Save', cancelText = 'Cancel' } = {}) {
+  return new Promise(resolve => {
+    let resolved = false;
+    const root = getDialogRoot();
+    let onKey = null;
+    const finish = val => {
+      if (resolved) return;
+      resolved = true;
+      if (onKey) window.removeEventListener('keydown', onKey);
+      root.classList.remove('open');
+      setTimeout(() => { if (!root.classList.contains('open')) root.innerHTML = ''; }, 250);
+      resolve(val);
+    };
+
+    root.innerHTML = `
+      <div class="scrim dialog-scrim" data-cancel style="position:fixed;inset:0;background:rgba(10,14,20,.45);z-index:70;opacity:1"></div>
+      <form class="dialog-box card glass form" role="dialog" aria-modal="true" style="position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:75;width:min(380px, 92vw);padding:22px 20px;box-shadow:0 14px 40px rgba(0,0,0,0.4);border-radius:calc(var(--radius)*1.1)">
+        <h2 class="dialog-title" style="margin:0 0 6px;font-size:1.2rem">${esc(title)}</h2>
+        ${message ? `<p class="dialog-msg" style="margin:0 0 14px;font-size:.9rem;line-height:1.4">${esc(message)}</p>` : ''}
+        <input class="dialog-input" name="val" autocomplete="off" placeholder="${esc(placeholder)}" value="${esc(defaultValue)}" autofocus required>
+        <div class="dialog-actions" style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px">
+          <button type="button" class="btn" data-cancel>${esc(cancelText)}</button>
+          <button type="submit" class="btn primary">${esc(confirmText)}</button>
+        </div>
+      </form>
+    `;
+    requestAnimationFrame(() => root.classList.add('open'));
+
+    const form = root.querySelector('form');
+    const input = root.querySelector('input');
+    form.onsubmit = e => {
+      e.preventDefault();
+      finish(input.value.trim());
+    };
+    root.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => finish(null)));
+    onKey = e => {
+      if (e.key === 'Escape') finish(null);
+    };
+    window.addEventListener('keydown', onKey);
+  });
+}
+
+// Neumorphic Toggle Switch HTML Component (Matches Reference Image)
+export function toggleSwitch(name, checked, title, desc = '', dataAttr = '') {
+  return `
+    <div class="toggle-row">
+      <div class="toggle-label">
+        <span class="toggle-title">${esc(title)}</span>
+        ${desc ? `<span class="toggle-desc">${esc(desc)}</span>` : ''}
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" name="${esc(name)}" ${dataAttr} ${checked ? 'checked' : ''}>
+        <div class="toggle-track">
+          <div class="toggle-thumb"></div>
+        </div>
+      </label>
+    </div>
+  `;
+}
+

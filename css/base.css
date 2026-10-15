@@ -1,8 +1,13 @@
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:color-mix(in srgb, var(--ink-2) 35%, transparent) transparent;touch-action:pan-x pan-y;overscroll-behavior:none;overflow-x:hidden}
+/* App-themed liquid custom scrollbars */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--ink-2) 30%, transparent);border-radius:99px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--accent);background-clip:padding-box}
 body{font:400 var(--base-font,15px)/1.5 var(--font);color:var(--ink);background:var(--bg);min-height:100dvh;
-  padding-top:env(safe-area-inset-top);-webkit-tap-highlight-color:transparent}
+  padding-top:env(safe-area-inset-top);-webkit-tap-highlight-color:transparent;touch-action:pan-x pan-y;overscroll-behavior:none;overflow-x:hidden}
 h1{font-size:1.65rem;font-weight:700;letter-spacing:-.02em}
 h2{font-size:1.05rem;font-weight:650;letter-spacing:-.01em}
 button,input,select{font:inherit;color:inherit}
@@ -22,8 +27,10 @@ a{color:inherit;text-decoration:none}
 .brand-text{font-size:1.3rem;font-weight:750;letter-spacing:-.03em;color:var(--ink)}
 .icon-btn{display:grid;place-items:center;width:40px;height:40px;border-radius:calc(var(--radius)*.55);
   background:var(--bg);color:var(--ink-2);border:0;cursor:pointer;
-  box-shadow:4px 4px 10px var(--sh-lo),-4px -4px 10px var(--sh-hi);transition:color .15s}
-.icon-btn:hover{color:var(--accent)}
+  box-shadow:4px 4px 10px var(--sh-lo),-4px -4px 10px var(--sh-hi);
+  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), color 0.15s, box-shadow 0.15s;will-change:transform}
+.icon-btn:hover{color:var(--accent);transform:scale(1.05)}
+.icon-btn:active{transform:scale(0.94);box-shadow:inset 2px 2px 5px var(--sh-lo),inset -2px -2px 5px var(--sh-hi)}
 .icon-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---- User DP / Avatar button with Online/Offline/Sync Ring ---- */
@@ -31,13 +38,29 @@ a{color:inherit;text-decoration:none}
   0%, 100% { box-shadow: 4px 4px 10px var(--sh-lo), -4px -4px 10px var(--sh-hi); opacity: 1; }
   50% { box-shadow: 0 0 0 4px var(--accent); opacity: 0.35; }
 }
+.topbar-right{display:flex;align-items:center;gap:10px}
+.sync-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;
+  background:var(--bg);border:1px solid var(--glass-line);cursor:pointer;font-size:.78rem;font-weight:650;
+  box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi);color:var(--ink);
+  transition:transform .18s cubic-bezier(0.2,0.85,0.35,1.2), box-shadow .15s}
+.sync-chip:hover{transform:scale(1.04)}
+.sync-chip:active{transform:scale(0.96);box-shadow:inset 2px 2px 5px var(--sh-lo),inset -2px -2px 5px var(--sh-hi)}
+.sync-chip-dot{width:7px;height:7px;border-radius:50%;background:var(--pos);flex-shrink:0}
+.sync-chip.synced .sync-chip-dot{background:var(--pos)}
+.sync-chip.pending .sync-chip-dot{background:hsl(38 92% 50%);animation:sync-dot-pulse 1s infinite alternate}
+.sync-chip.offline .sync-chip-dot{background:var(--neg)}
+.sync-chip.local .sync-chip-dot{background:var(--ink-2)}
+@keyframes sync-dot-pulse{0%{opacity:.3;transform:scale(.85)}100%{opacity:1;transform:scale(1.2)}}
+
 .user-dp-btn{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;
   background:var(--bg);border:2.5px solid var(--pos);cursor:pointer;overflow:hidden;
-  box-shadow:4px 4px 10px var(--sh-lo),-4px -4px 10px var(--sh-hi);transition:border-color .3s, transform .15s}
+  box-shadow:4px 4px 10px var(--sh-lo),-4px -4px 10px var(--sh-hi);
+  transition:border-color .3s, transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.2s;will-change:transform}
 .user-dp-btn.offline{border-color:var(--neg)}
 .user-dp-btn.syncing{animation:sync-ring-blink 0.5s ease-in-out 3}
-.user-dp-btn:hover{transform:scale(1.05)}
-.user-dp-btn img{width:100%;height:100%;object-fit:cover}
+.user-dp-btn:hover{transform:scale(1.06)}
+.user-dp-btn:active{transform:scale(0.95)}
+.user-dp-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 .dp-initials{font-weight:750;font-size:1.05rem;color:var(--accent)}
 
 /* ---- Main Shell Layout ---- */
@@ -50,6 +73,12 @@ main{display:grid;gap:calc(var(--space)*1.4);align-content:start;min-width:0}
 
 /* Mobile Responsive Optimization (< 900px) */
 @media(max-width:899px){
+  body::after{
+    content:'';position:fixed;left:0;right:0;bottom:0;
+    height:calc(88px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, var(--bg) 75%, transparent 100%);
+    pointer-events:none;z-index:9;
+  }
   h1{font-size:1.35rem;letter-spacing:-.02em}
   h2{font-size:.98rem;letter-spacing:-.01em}
   .app-topbar{padding:8px 14px}
@@ -69,5 +98,44 @@ main{display:grid;gap:calc(var(--space)*1.4);align-content:start;min-width:0}
   .nav{position:sticky;top:80px;left:auto;right:auto;bottom:auto;align-self:start;
     flex-direction:column;align-items:stretch;gap:6px;padding:16px;max-height:calc(100vh - 104px);overflow-y:auto}
 }
-@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}::view-transition-old(root),::view-transition-new(root),::view-transition-old(page-view),::view-transition-new(page-view){animation:none!important}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- Liquid Page View Transitions ---- */
+#view{view-transition-name:page-view}
+
+/* Prevent full-screen root shaking / scaling / translating */
+::view-transition-old(root),
+::view-transition-new(root){
+  animation:none!important;
+}
+
+/* Scope fluid liquid motion purely to the page view content */
+::view-transition-old(page-view),
+::view-transition-new(page-view){
+  animation-duration:0.2s;
+  animation-timing-function:cubic-bezier(0.2, 0.9, 0.32, 1.15);
+}
+::view-transition-old(page-view){
+  animation-name:liquid-view-out;
+}
+::view-transition-new(page-view){
+  animation-name:liquid-view-in;
+}
+@keyframes liquid-view-out{
+  from{opacity:1;transform:translateY(0)}
+  to{opacity:0;transform:translateY(-4px)}
+}
+@keyframes liquid-view-in{
+  from{opacity:0;transform:translateY(4px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* Fallback liquid entrance when View Transitions are not active */
+#view>*{
+  animation:liquid-page-enter 0.2s cubic-bezier(0.18, 0.92, 0.3, 1.15) both;
+}
+@keyframes liquid-page-enter{
+  from{opacity:0;transform:translateY(4px)}
+  to{opacity:1;transform:translateY(0)}
+}

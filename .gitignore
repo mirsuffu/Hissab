@@ -5,3 +5,21 @@ firestore-debug.log*
 ui-debug.log*
 .DS_Store
 Thumbs.db
+.env
+.env.*
+*.local
+
+# Android build outputs and IDE cache
+android/.gradle/
+android/build/
+android/*/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/app/src/main/assets/www/
+
+# Binary artifacts and archives
+*.exe
+*.apk
+*.cer
+archive/

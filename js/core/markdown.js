@@ -87,9 +87,11 @@ export function renderMarkdown(raw = '') {
     // Inline code: `code`
     res = res.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
     // Bold: **text** or __text__
-    res = res.replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>');
-    // Italic: *text* or _text_
-    res = res.replace(/(\*|_)(.*?)\1/g, '<em>$2</em>');
+    res = res.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    res = res.replace(/(^|[\s(])__([^_]+)__([\s).,!?]|$)/g, '$1<strong>$2</strong>$3');
+    // Italic: *text* or _text_ (word/boundary sensitive to avoid mangling snake_case & handles)
+    res = res.replace(/(^|[\s(])\*([^*]+)\*([\s).,!?]|$)/g, '$1<em>$2</em>$3');
+    res = res.replace(/(^|[\s(])_([^_]+)_([\s).,!?]|$)/g, '$1<em>$2</em>$3');
     // Links: [text](url)
     res = res.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
     // Autolink bare URLs

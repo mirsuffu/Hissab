@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.mirsuffu.hisaab",
+    "sha256_cert_fingerprints": ["78:82:70:ED:15:97:14:AF:B1:FC:42:F1:31:BA:93:52:D6:5B:8D:B7:2F:83:D5:21:44:99:07:A6:25:AB:33:D9"]
+  }
+}]

@@ -19,7 +19,37 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**",
-      "docs/**"
+      "docs/**",
+      "archive/**",
+      "firestore.rules",
+      "firestore.indexes.json",
+      "package.json",
+      "README.md",
+      "**/*.md",
+      "**/*.exe",
+      "**/*.apk",
+      "**/*.aab",
+      "**/*.zip",
+      "**/*.cer",
+      "android/**",
+      "android-build/**",
+      "!.well-known/**",
+      ".env*"
+    ],
+    "headers": [
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      }
     ],
     "rewrites": [
       {

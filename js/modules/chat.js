@@ -2,7 +2,7 @@
 import * as cloud from '../core/cloud.js';
 import { renderMarkdown, csvToMarkdown } from '../core/markdown.js';
 import { download, printHTML } from '../core/export.js';
-import { esc, toast } from '../ui.js';
+import { esc, toast, confirmModal } from '../ui.js';
 
 let stop = [];
 const clean = () => { stop.forEach(f => f()); stop = []; };
@@ -110,7 +110,15 @@ async function thread(root, otherUid) {
       if (t.closest('[data-attach]')) $('#pick').click();
       else if (t.closest('[data-accept]')) await cloud.respond(id, true);
       else if (t.closest('[data-decline]')) await cloud.respond(id, false);
-      else if (t.closest('[data-block]')) { if (confirm(`Block ${other.name}? They won’t be able to message you.`)) await cloud.block(id); }
+      else if (t.closest('[data-block]')) {
+        const ok = await confirmModal({
+          title: `Block ${other.name}?`,
+          message: `Block ${other.name}? They won’t be able to message you.`,
+          confirmText: 'Block',
+          danger: true
+        });
+        if (ok) await cloud.block(id);
+      }
       else if (t.closest('[data-unblock]')) await cloud.unblock(id);
       else if (t.closest('[data-copy-doc]')) {
         const mid = t.closest('[data-copy-doc]').dataset.copyDoc;

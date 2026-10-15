@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hisaab</string>
+    <string name="widget_name">Hisaab Glance</string>
+    <string name="widget_title">Hisaab</string>
+    <string name="notification_channel_id">hisaab_quick_glance</string>
+    <string name="notification_channel_name">Hisaab Quick Glance &amp; Entry</string>
+    <string name="notification_channel_desc">Shows ongoing daily expense and provides quick-add shortcuts</string>
+    
+    <!-- Action buttons -->
+    <string name="action_add_expense">+ Expense</string>
+    <string name="action_quick_expense">+ Quick</string>
+    <string name="action_open_app">Open</string>
+    
+    <!-- Biometrics -->
+    <string name="bio_prompt_title">Unlock Hisaab</string>
+    <string name="bio_prompt_subtitle">Confirm your biometric identity to access your records</string>
+    <string name="bio_prompt_cancel">Use PIN / Cancel</string>
+</resources>

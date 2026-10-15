@@ -2,17 +2,26 @@
 import { store } from '../core/store.js';
 import * as cloud from '../core/cloud.js';
 import { sync } from '../core/sync.js';
-import { esc, toast, icon, openSheet, closeSheet } from '../ui.js';
+import { today, compressImage } from '../core/models.js';
+import { esc, toast, icon, openSheet, closeSheet, confirmModal, promptModal } from '../ui.js';
 import { encrypt, decrypt, isEncrypted } from '../core/crypto.js';
-import { download } from '../core/export.js';
+import { saveWithPicker } from '../core/export.js';
 
 export function render(root) {
+  if (!root._cloudSubscribed) {
+    root._cloudSubscribed = true;
+    cloud.onChange(() => {
+      if (root.isConnected) render(root);
+    });
+  }
+
   const c = cloud.state();
   const { profiles, profile } = store.live();
   const syncOn = localStorage.getItem('hisaab.syncOn') === '1';
 
-  const avatar = c.user?.photoURL
-    ? `<img class="ac-avatar-img" src="${esc(c.user.photoURL)}" alt="Avatar" referrerpolicy="no-referrer">`
+  const avatarSrc = profile.dp || c.user?.photoURL;
+  const avatar = avatarSrc
+    ? `<img class="ac-avatar-img" src="${esc(avatarSrc)}" alt="Avatar" referrerpolicy="no-referrer">`
     : `<div class="ac-avatar-initials">${esc((c.profile?.name || profile.name || 'U').charAt(0).toUpperCase())}</div>`;
 
   root.innerHTML = `
@@ -21,14 +30,20 @@ export function render(root) {
         <h1>Account & Profile</h1>
         <p class="muted">Manage your identity, sync, and family profiles.</p>
       </div>
-      <a class="btn" href="#/settings">Settings</a>
     </header>
 
     <section class="hero raised ac-card">
       <div class="ac-user-row">
-        ${avatar}
-        <div>
-          <h2 style="font-size:1.4rem">${esc(c.profile?.name || c.user?.displayName || profile.name)}</h2>
+        <label class="ac-avatar-wrap" title="Click to upload profile photo" style="position:relative;cursor:pointer;border-radius:50%;display:grid;place-items:center">
+          ${avatar}
+          <span class="ac-dp-badge" style="position:absolute;bottom:0;right:0;background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;font-size:12px;border:2px solid var(--bg);box-shadow:0 2px 5px rgba(0,0,0,.25)">📷</span>
+          <input type="file" accept="image/*" id="ac-dp-input" hidden>
+        </label>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:10px">
+            <h2 style="font-size:1.4rem;margin:0">${esc(profile.name || c.profile?.name || c.user?.displayName)}</h2>
+            <button class="btn-micro" id="ac-edit-name-btn" title="Edit name" style="font-size:.8rem;cursor:pointer">✏️ Edit</button>
+          </div>
           ${c.user ? (c.profile ? `<p class="muted">@${esc(c.profile.handle)} · Cloud Active</p>` : `<p class="muted">${esc(c.user.email || 'Online')}</p>`) : '<p class="muted">Guest / Local Profile (100% Private Offline)</p>'}
         </div>
       </div>
@@ -39,7 +54,10 @@ export function render(root) {
     </section>
 
     <section class="card glass form">
-      <h2>Cloud Backup & Sync</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Cloud Backup & Sync</h2>
+        <button type="button" class="btn" data-sync-now style="padding:4px 12px;font-size:.82rem" ${!c.user ? 'disabled' : ''}>⚡ Sync Now</button>
+      </div>
       <p class="muted">${c.user ? 'Zero-cost synchronization using Firebase Firestore.' : 'Sign in above to enable automatic backup and cross-device sync.'}</p>
       <label class="pill">
         <input type="checkbox" data-sync ${syncOn ? 'checked' : ''} ${!c.user ? 'disabled' : ''}>
@@ -76,18 +94,40 @@ export function render(root) {
       <div class="row">
         <button class="btn" data-export>Export Backup</button>
         <button class="btn" data-export-enc>Encrypted Backup</button>
-        <label class="btn">Import Backup<input type="file" accept="application/json,.json" data-import hidden></label>
+        <label class="btn">Import Backup<input type="file" accept=".json,.enc.json,application/json,text/plain" data-import hidden></label>
       </div>
     </section>
   `;
 
-  const date = () => new Date().toISOString().slice(0, 10);
+  const date = today;
 
   root.onclick = async e => {
     const t = e.target;
     try {
       if (t.closest('[data-signin]')) await cloud.signIn();
       else if (t.closest('[data-signout]')) { await cloud.signOut(); render(root); }
+      else if (t.closest('#ac-edit-name-btn')) {
+        const newName = await promptModal({
+          title: 'Edit Name ✏️',
+          message: 'What should we call you on this device?',
+          defaultValue: profile.name || '',
+          placeholder: 'Your name or moniker'
+        });
+        if (newName && newName.trim()) {
+          await store.updateProfile(profile.id, { name: newName.trim() });
+          if (c.user && c.profile) {
+            try { await cloud.updateProfile({ name: newName.trim() }); } catch {}
+          }
+          toast('New alias registered! Looking sharp, boss 😎✏️');
+          render(root);
+        }
+      }
+      else if (t.closest('[data-sync-now]')) {
+        toast('Beaming your ledgers to the cloud mothership… 🛸☁️');
+        await sync.flush();
+        toast('Cloud sync crystal clear! Your numbers are immortal now ☁️💎');
+        render(root);
+      }
       else if (t.closest('[data-profile]')) {
         store.switchProfile(t.closest('[data-profile]').dataset.profile);
         render(root);
@@ -95,17 +135,24 @@ export function render(root) {
       else if (t.closest('[data-del-profile]')) {
         const id = t.closest('[data-del-profile]').dataset.delProfile;
         const pTarget = profiles.find(x => x.id === id);
-        if (!confirm(`Delete profile "${pTarget?.name || 'this person'}"? Past records will remain in the audit trail.`)) return;
+        const ok = await confirmModal({
+          title: `Delete Profile? 👤`,
+          message: `Delete profile "${pTarget?.name || 'this person'}"? Past records will remain safe in the audit trail.`,
+          confirmText: 'Delete Profile',
+          danger: true
+        });
+        if (!ok) return;
         await store.deleteProfile(id);
-        toast('Profile deleted');
+        toast('Profile archived into memory. Farewell! 👋🗂️');
         render(root);
       }
       else if (t.closest('[data-export]')) {
-        download(`hisaab-backup-${date()}.json`, 'application/json', store.exportAll());
+        const ok = await saveWithPicker(`hisaab-backup-${date()}.json`, 'application/json', store.exportAll());
+        if (ok) toast('Ledger snapshot packed and exported! Guard it like royal jewels 💎📦');
       }
       else if (t.closest('[data-export-enc]')) {
         openSheet(`
-          <h2>Encrypted Backup</h2>
+          <h2>Encrypted Backup 🔐</h2>
           <p class="muted">Choose a passphrase (min 8 characters). You will need it to restore this file.</p>
           <form id="ac-enc-form" class="form">
             <label class="field"><span>Passphrase</span><input type="password" name="pass" required minlength="8" placeholder="Passphrase (min 8 chars)"></label>
@@ -117,11 +164,11 @@ export function render(root) {
             evt.preventDefault();
             const pass = evt.target.pass.value;
             const conf = evt.target.confirm.value;
-            if (pass !== conf) return toast('Passphrases did not match');
+            if (pass !== conf) return toast('Passphrases had a disagreement! Double check your typing 🧐🔑');
             const encData = await encrypt(store.exportAll(), pass);
-            download(`hisaab-backup-${date()}.enc.json`, 'application/json', encData);
             closeSheet();
-            toast('Encrypted backup saved');
+            const ok = await saveWithPicker(`hisaab-backup-${date()}.enc.json`, 'application/json', encData);
+            if (ok) toast('Fort Knox level encryption applied! Don’t lose that passphrase 🔐🛡️');
           };
         });
       }
@@ -131,7 +178,15 @@ export function render(root) {
   root.onchange = async e => {
     const t = e.target;
     try {
-      if (t.matches('[data-sync]')) {
+      if (t.matches('#ac-dp-input')) {
+        const file = t.files?.[0];
+        if (!file) return;
+        toast('Polishing profile picture to perfection… 📸✨');
+        const compressedDp = await compressImage(file, 160, 0.85);
+        await store.updateProfile(profile.id, { dp: compressedDp });
+        toast('Look at that dashing display picture! Profile glow-up complete 📸✨');
+        render(root);
+      } else if (t.matches('[data-sync]')) {
         localStorage.setItem('hisaab.syncOn', t.checked ? '1' : '0');
         cloud.refresh();
         render(root);
@@ -139,7 +194,7 @@ export function render(root) {
         let text = await t.files[0].text();
         if (isEncrypted(text)) {
           openSheet(`
-            <h2>Import Encrypted Backup</h2>
+            <h2>Import Encrypted Backup 🔐</h2>
             <form id="ac-import-enc-form" class="form">
               <label class="field"><span>Backup Passphrase</span><input type="password" name="pass" required placeholder="Enter passphrase"></label>
               <button class="btn primary">Decrypt & Restore</button>
@@ -152,17 +207,17 @@ export function render(root) {
                 const dec = await decrypt(text, pass);
                 await store.importAll(dec);
                 closeSheet();
-                toast('Backup restored successfully');
+                toast('Abracadabra! Entire financial timeline restored flawlessly 🪄📜');
                 render(root);
               } catch {
-                toast('Wrong passphrase or corrupted backup');
+                toast('Passphrase rejected! The vault remains firmly shut 🙅‍♂️🔐');
               }
             };
           });
           return;
         }
         await store.importAll(text);
-        toast('Backup imported successfully');
+        toast('All records welcomed home! Backup imported like a charm 📂✨');
         render(root);
       }
     } catch (err) { toast(err.message || 'Import failed'); }
@@ -175,7 +230,7 @@ export function render(root) {
       const name = pfForm.name.value.trim();
       if (!name) return;
       await store.addProfile(name);
-      toast('Person added');
+      toast('New family ledger spawned! Welcome to the hisaab circle 👨‍👩‍👧‍👦🎉');
       render(root);
     };
   }

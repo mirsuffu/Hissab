@@ -11,7 +11,29 @@ export function buildModel(L, o) {
   let rows = L.txns.filter(t => inPeriod(t.date) && (!o.fundId || t.fundId === o.fundId) && (!o.categoryId || t.categoryId === o.categoryId)
       && (!o.partyId || t.partyId === o.partyId) && (o.type === 'all' || t.type === o.type))
     .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
-  let bal = 0, income = 0, expense = 0;
+  let balBf = 0;
+  if (o.fundId) {
+    const fObj = L.allFunds.find(x => x.id === o.fundId);
+    balBf += (fObj?.opening || 0);
+  } else {
+    balBf += L.funds.reduce((sum, f) => sum + (f.opening || 0), 0);
+  }
+
+  const isBeforePeriod = d => {
+    if (o.period === 'all') return false;
+    if (o.period === 'month' && o.month) return d < (o.month + '-01');
+    if (o.period === 'year' && o.year) return d < (o.year + '-01-01');
+    if (o.period === 'day' && o.date) return d < o.date;
+    if (o.period === 'range' && o.from) return d < o.from;
+    return false;
+  };
+
+  const priorTxns = L.txns.filter(t => isBeforePeriod(t.date) && (!o.fundId || t.fundId === o.fundId));
+  for (const t of priorTxns) {
+    balBf += (t.type === 'in' ? t.amount : -t.amount);
+  }
+
+  let bal = balBf, income = 0, expense = 0;
   rows = rows.map(t => { const s = t.type === 'in' ? t.amount : -t.amount; bal += s; s > 0 ? (income += s) : (expense -= s); return { t, bal }; });
   if (o.sort === 'desc') rows.reverse();
   const cell = {
@@ -23,7 +45,7 @@ export function buildModel(L, o) {
   const keyOf = { date: cell.date, category: cell.category, party: r => cell.party(r) || 'No party', fund: cell.fund }[o.groupBy];
   const buckets = new Map();
   for (const r of rows) { const k = keyOf ? keyOf(r) : ''; if (!buckets.has(k)) buckets.set(k, []); buckets.get(k).push(r); }
-  const month = o.month && new Date(o.month + '-01T00:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const month = o.month && new Date(o.month + '-01T00:00:00').toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
   const label = { day: o.date, month, year: o.year, range: `${o.from || '…'} to ${o.to || '…'}`, all: 'All time' }[o.period];
   const extra = [o.fundId && `Fund: ${fund[o.fundId]}`, o.categoryId && `Category: ${cat[o.categoryId]}`, o.partyId && `Party: ${party[o.partyId]}`, o.type !== 'all' && (o.type === 'in' ? 'Received only' : 'Spent only')].filter(Boolean);
   return {
@@ -54,6 +76,30 @@ export function toHTML(m, tpl = 'clean') {
   return `<!doctype html><meta charset="utf-8"><title>${esc(m.title)}</title><style>${CSS[tpl]}table{border-collapse:collapse;width:100%;border-radius:12px}h1{margin:0}p{color:#6b7785}</style>
   <h1>${esc(m.title)}</h1><p>${esc(m.subtitle)}</p><table><thead><tr>${m.cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
   ${m.showTotals ? `<p><b>Received ${fmt(m.totals.income)} · Spent ${fmt(m.totals.expense)} · Net ${fmt(m.totals.net)}</b> (${m.totals.count} entries)</p>` : ''}`;
+}
+
+export async function saveWithPicker(name, mime, data) {
+  if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+    try {
+      const ext = name.includes('.') ? '.' + name.split('.').pop() : '.json';
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{
+          description: 'Hisaab Backup File',
+          accept: { [mime || 'application/json']: [ext] }
+        }]
+      });
+      const writable = await handle.createWritable();
+      const content = data instanceof Blob ? data : new Blob([data], { type: mime || 'application/json' });
+      await writable.write(content);
+      await writable.close();
+      return true;
+    } catch (err) {
+      if (err.name === 'AbortError') return false; // user cancelled save picker
+    }
+  }
+  download(name, mime, data);
+  return true;
 }
 
 export function download(name, mime, data) {

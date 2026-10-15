@@ -2,7 +2,7 @@
 import { logger } from './log.js';
 const KEY = 'hisaab.prefs';
 const timers = {};
-export const DEFAULTS = { mode: 'minimal', theme: 'auto', hue: 162, radius: 22, blur: 18, depth: 10, density: 1, fontSize: 15, dupWindow: 6 };
+export const DEFAULTS = { mode: 'minimal', theme: 'auto', hue: 162, radius: 22, blur: 18, depth: 10, density: 1, fontSize: 15, dupWindow: 6, sound: true, soundVolume: 0.7, haptics: true, brsEnabled: true, chillarEnabled: false, chillarPotId: '' };
 let P = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') };
 const mq = matchMedia('(prefers-color-scheme: dark)');
 
@@ -25,3 +25,25 @@ export function setPref(k, v) {
 export function resetPrefs() { logger.info('Appearance reset'); P = { ...DEFAULTS }; localStorage.setItem(KEY, JSON.stringify(P)); apply(); }
 mq.addEventListener('change', apply);
 apply();
+
+const AI_CONFIG_KEY = 'hisaab.ai_config';
+export function getAiConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem(AI_CONFIG_KEY) || 'null');
+    return {
+      enabled: cfg?.enabled ?? true,
+      provider: cfg?.provider || 'local',
+      apiKey: cfg?.apiKey || '',
+      endpoint: cfg?.endpoint || '',
+      model: cfg?.model || '',
+      systemPrompt: cfg?.systemPrompt || ''
+    };
+  } catch {
+    return { enabled: true, provider: 'local', apiKey: '', endpoint: '', model: '', systemPrompt: '' };
+  }
+}
+export function saveAiConfig(cfg) {
+  const cur = getAiConfig();
+  localStorage.setItem(AI_CONFIG_KEY, JSON.stringify({ ...cur, ...cfg }));
+}
+

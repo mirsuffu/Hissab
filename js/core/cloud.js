@@ -4,7 +4,11 @@ import { firebaseConfig } from '../firebase-config.js';
 import { logger } from './log.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2';
-let F = null, auth, db, me = null, profile = null, booting = null;
+const PROFILE_KEY = 'hisaab.cloud_profile';
+let cachedProfile = null;
+try { cachedProfile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); } catch {}
+
+let F = null, auth, db, me = null, profile = cachedProfile, booting = null;
 const subs = new Set();
 const emit = () => subs.forEach(f => f());
 
@@ -22,9 +26,32 @@ export function init() {
     const [A, Au, Fs] = await Promise.all(['app', 'auth', 'firestore'].map(m => import(`${SDK}/firebase-${m}.js`)));
     const app = A.initializeApp(firebaseConfig);
     auth = Au.getAuth(app);
+    try {
+      if (Au.setPersistence && Au.indexedDBLocalPersistence) {
+        await Au.setPersistence(auth, Au.indexedDBLocalPersistence);
+      }
+    } catch {}
     db = Fs.initializeFirestore(app, { localCache: Fs.persistentLocalCache({ tabManager: Fs.persistentMultipleTabManager() }) });
     F = { A, Au, Fs };
-    await new Promise(res => { let first = true; Au.onAuthStateChanged(auth, async u => { me = u; profile = u ? await loadProfile(u.uid).catch(() => null) : null; first ? ((first = false), res()) : emit(); }); });
+    await new Promise(res => {
+      let first = true;
+      Au.onAuthStateChanged(auth, async u => {
+        me = u;
+        if (u) {
+          const fresh = await loadProfile(u.uid).catch(() => null);
+          if (fresh) {
+            profile = fresh;
+            try { localStorage.setItem(PROFILE_KEY, JSON.stringify(fresh)); } catch {}
+          } else {
+            profile = cachedProfile?.uid === u.uid ? cachedProfile : null;
+          }
+        } else {
+          profile = null;
+          try { localStorage.removeItem(PROFILE_KEY); } catch {}
+        }
+        first ? ((first = false), res()) : emit();
+      });
+    });
     logger.info('Cloud connected', { signedIn: !!me });
   })());
 }
@@ -34,7 +61,12 @@ async function loadProfile(uid) { const s = await F.Fs.getDoc(F.Fs.doc(db, 'user
 export async function getUser(uid) { need(); return loadProfile(uid); }
 
 export async function signIn() { await init(); await F.Au.signInWithPopup(auth, new F.Au.GoogleAuthProvider()); }
-export async function signOut() { await F.Au.signOut(auth); }
+export async function signOut() {
+  try { localStorage.removeItem(PROFILE_KEY); } catch {}
+  profile = null;
+  await F.Au.signOut(auth);
+  emit();
+}
 
 // ---- profile & unique ID -----------------------------------------------------------------
 const HANDLE = /^[a-z0-9._]{3,20}$/;
@@ -131,4 +163,22 @@ export function syncAdapter() {
     push: (kind, d) => setDoc(doc(col(kind), d.id), d),
     pullSince: async (kind, since) => (await getDocs(query(col(kind), where('updatedAt', '>', since)))).docs.map(d => d.data()),
   };
+}
+
+export async function wipeCloudData() {
+  need();
+  const { collection, getDocs, writeBatch } = F.Fs;
+  for (const kind of ['profiles', 'funds', 'categories', 'parties', 'transactions', 'recurring', 'audit']) {
+    const snap = await getDocs(collection(db, 'users', me.uid, kind));
+    if (!snap.empty) {
+      const CHUNK = 450;
+      for (let i = 0; i < snap.docs.length; i += CHUNK) {
+        const batch = writeBatch(db);
+        const slice = snap.docs.slice(i, i + CHUNK);
+        slice.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+    }
+  }
+  logger.info('Cloud data wiped for user', { uid: me.uid });
 }

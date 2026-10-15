@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_name"
+    android:initialKeyguardLayout="@layout/widget_hisaab"
+    android:initialLayout="@layout/widget_hisaab"
+    android:minWidth="180dp"
+    android:minHeight="80dp"
+    android:previewImage="@mipmap/ic_launcher"
+    android:previewLayout="@layout/widget_hisaab"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

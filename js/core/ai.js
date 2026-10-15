@@ -2,33 +2,13 @@
 // Runs locally by default (offline, zero-cost) or integrates with custom AI providers (Gemini, OpenRouter, Custom).
 import { store } from './store.js';
 import { fmt, toMinor, fromMinor, today, uid } from './models.js';
-import { monthRange, summary, fundBalance, findDuplicateTxn } from './calc.js';
+import { monthRange, summary, fundBalance, findDuplicateTxn, potBalance, potVelocity, suspenseBalance } from './calc.js';
 import { alerts, forecast, byCategory } from './insights.js';
 import * as cloud from './cloud.js';
 import { sync } from './sync.js';
 
-const AI_CONFIG_KEY = 'hisaab.ai_config';
-
-export function getAiConfig() {
-  try {
-    const cfg = JSON.parse(localStorage.getItem(AI_CONFIG_KEY) || 'null');
-    return {
-      enabled: cfg?.enabled ?? true,
-      provider: cfg?.provider || 'local',
-      apiKey: cfg?.apiKey || '',
-      endpoint: cfg?.endpoint || '',
-      model: cfg?.model || '',
-      systemPrompt: cfg?.systemPrompt || ''
-    };
-  } catch {
-    return { enabled: true, provider: 'local', apiKey: '', endpoint: '', model: '', systemPrompt: '' };
-  }
-}
-
-export function saveAiConfig(cfg) {
-  const cur = getAiConfig();
-  localStorage.setItem(AI_CONFIG_KEY, JSON.stringify({ ...cur, ...cfg }));
-}
+import { getAiConfig, saveAiConfig } from './prefs.js';
+export { getAiConfig, saveAiConfig };
 
 // Generate real-time comprehensive snapshot of the user's financial state & app context
 export function getFinancialContext() {
@@ -86,14 +66,14 @@ function localAssistantReply(prompt) {
 
   // Guardrail 2: Refuse direct speculative investment decisions
   if ((q.includes('should i buy') || q.includes('which stock') || q.includes('crypto') || q.includes('share price') || q.includes('multibagger')) &&
-      (q.includes('invest') || q.includes('stock') || q.includes('trade') || q.includes('buy') || q.includes('coin'))) {
+    (q.includes('invest') || q.includes('stock') || q.includes('trade') || q.includes('buy') || q.includes('coin'))) {
     return `I cannot provide direct investment advice, buy/sell calls, or speculative asset recommendations.\n\n*First Principle:* Prioritize paying down high-cost debt and building an emergency liquid buffer (at least 3 months of expenses) before committing capital to risk assets. Please consult a licensed SEBI registered financial advisor for personalized investment planning.`;
   }
 
   // 3. Natural Language Transaction Creation
   const isEntryIntent = q.startsWith('spent ') || q.startsWith('spend ') || q.startsWith('paid ') ||
-                        q.startsWith('received ') || q.startsWith('got ') || q.startsWith('add entry') ||
-                        q.startsWith('record ') || q.startsWith('log ');
+    q.startsWith('received ') || q.startsWith('got ') || q.startsWith('add entry') ||
+    q.startsWith('record ') || q.startsWith('log ');
 
   if (isEntryIntent) {
     const L = store.live();
@@ -170,11 +150,40 @@ function localAssistantReply(prompt) {
 
   // 5. Balances & Total Money
   if (q.includes('balance') || q.includes('how much') || q.includes('total') || q.includes('net worth') || q.includes('money')) {
-    let reply = `You currently have **${ctx.totalOwn}** across your personal funds (${ctx.fundsSummary || 'no active funds'}).`;
+    let reply = `You currently have **${ctx.totalOwn}** across your personal operational funds (${ctx.fundsSummary || 'no active funds'}).`;
     if (ctx.totalHeld !== '₹0') {
       reply += `\n\nAdditionally, you hold **${ctx.totalHeld}** for others (${ctx.heldSummary}), which is kept strictly sequestered.`;
     }
+    const L = store.live();
+    if (L.pots.length) {
+      const totalPots = L.pots.reduce((acc, p) => acc + potBalance(p, L.txns), 0);
+      reply += `\n\nYou also have **${fmt(totalPots)}** saved across your Pots (🏺 ${L.pots.map(p => p.name).join(', ')}).`;
+    }
     return reply;
+  }
+
+  // 5b. Pots & Savings Goals
+  if (q.includes('pot') || q.includes('gullak') || q.includes('savings goal') || q.includes('savings target')) {
+    const L = store.live();
+    if (!L.pots.length) {
+      return `You don't have any active Savings Pots yet. Open the **Pots** tab to set up a dedicated target for emergency reserves, gold, or future purchases! 🏺`;
+    }
+    const breakdown = L.pots.map(p => {
+      const bal = potBalance(p, L.txns);
+      const vel = potVelocity(p, bal);
+      return `- **${p.name}:** ${fmt(bal)} (${vel.label})`;
+    }).join('\n');
+    return `🏺 **Your Savings Pots:**\n${breakdown}`;
+  }
+
+  // 5c. Suspense Account & Variance
+  if (q.includes('suspense') || q.includes('uchant') || q.includes('variance') || q.includes('reconcil')) {
+    const L = store.live();
+    const bal = suspenseBalance(L.txns);
+    if (bal === 0) {
+      return `⚖️ **Suspense Account:** Clean and balanced! No unverified cash or passbook variances are pending.`;
+    }
+    return `⚠️ **Suspense Account Alert:** You have **${fmt(Math.abs(bal))}** parked in Suspense (उचंत खाता). Open **Tools > Suspense** to reclassify or write off this variance.`;
   }
 
   // 6. Spending, Income & Monthly Breakdown
@@ -230,30 +239,57 @@ export async function askAi(userPrompt) {
   }
 
   const ctx = getFinancialContext();
+  const q = userPrompt.toLowerCase().trim();
 
-  if (cfg.provider === 'local' || !cfg.apiKey) {
-    await new Promise(r => setTimeout(r, 220));
+  // Guardrail: Intercept transactional, balance, history, and alert queries locally.
+  // Never beam real ledger records, bank names, or balance amounts to external cloud AI.
+  const isDirectIntent = q.startsWith('spent ') || q.startsWith('spend ') || q.startsWith('paid ') ||
+    q.startsWith('received ') || q.startsWith('got ') || q.startsWith('add entry') ||
+    q.startsWith('record ') || q.startsWith('log ') || q.includes('balance') || q.includes('alert') ||
+    q.includes('kitna') || q.includes('bacha') || q.includes('kharcha') || q.includes('kamai') ||
+    q.includes('recent') || q.includes('history') || q.includes('tip') || q.includes('rule') ||
+    q.includes('how much') || q.includes('income') || q.includes('expense') || q.includes('net worth') ||
+    q.includes('savings') || q.includes('money') || q.includes('total');
+
+  if (cfg.provider === 'local' || !cfg.apiKey || isDirectIntent) {
+    await new Promise(r => setTimeout(r, 200));
     return localAssistantReply(userPrompt);
   }
 
+  // Zero-Knowledge Synthetic Tokenization: Mask fund names, account holders, and exact rupee figures
+  const reverseTokenMap = new Map();
+  let fundLetterCode = 65; // A, B, C...
+  const sanitizedFunds = ctx.allFundsList.map(f => {
+    const alias = `[Fund_${String.fromCharCode(fundLetterCode++)}]`;
+    reverseTokenMap.set(alias, f.name);
+    return `${alias} (${f.type === 'held' ? 'Trust/Held' : 'Liquid'})`;
+  }).join(', ');
+
+  const detokenize = text => {
+    if (!text) return text;
+    let out = text;
+    for (const [alias, realName] of reverseTokenMap.entries()) {
+      out = out.replaceAll(alias, `**${realName}**`);
+    }
+    return out;
+  };
+
   const defaultSys = `You are Munimji, the sharp, first-principles financial assistant for Hisaab (a modern expense & fund tracker).
 The user values honesty, crisp logic, and zero fluff.
-RULES:
-1. Be short, crisp, and concise. Never use filler or corporate padding.
-2. Refuse non-financial and non-app related topics humbly and directly.
-3. Never give direct speculative investment advice or stock picks; provide educational first-principles caveats.
-4. If the user wants to log a transaction, extract type ('in' or 'out'), amount (in rupees), fundId, categoryId, note. If fund or amount is ambiguous, ask clarifying questions first. When all details are clear, end response with ACTION:create_txn:{"type":"out","amount":paise,"fundId":"id","fundName":"name","categoryId":"id","categoryName":"name","date":"YYYY-MM-DD","note":"note"}.
-5. Use basic Markdown (bold, bullet lists, tables).
+PRIVACY & GUARDRAIL RULES:
+1. All financial accounts have been anonymously tokenized (e.g. [Fund_A]) on the client device for zero-knowledge privacy.
+2. Be short, crisp, and concise. Never use filler or corporate padding.
+3. Refuse non-financial and non-app related topics humbly and directly.
+4. Never give direct speculative investment advice or stock picks; provide educational first-principles caveats.
+5. Use basic Markdown (bold, bullet/numbered lists, tables).
 
-CURRENT CONTEXT:
-- User: ${ctx.profile} (${ctx.signInStatus})
+CURRENT CONTEXT (Zero-Knowledge Client Masked):
+- User: App Owner (Local Device)
 - Connectivity: ${ctx.online ? 'Online' : 'Offline'}
-- Personal Balance: ${ctx.totalOwn} (${ctx.fundsSummary})
-- Held For Others: ${ctx.totalHeld} (${ctx.heldSummary})
-- This Month: Received ${ctx.monthIncome}, Spent ${ctx.monthExpense}, Net ${ctx.netSavings}
-- Categories: ${ctx.categories.join(', ')}
-- Available Funds: ${ctx.allFundsList.map(f => `${f.name} (id: ${f.id})`).join(', ')}
-- Active Alerts: ${ctx.alerts.join('; ') || 'None'}`;
+- Financial Health: ${ctx.isSaved ? 'Operating Surplus (Inflow exceeds Outflow)' : 'Deficit Alert (Outflow exceeds Inflow)'}
+- Vault Structure: ${sanitizedFunds}
+- Active Categories: ${ctx.categories.join(', ')}
+- Budget Alerts: ${ctx.alerts.length ? 'Active alerts on spending limits' : 'All clear'}`;
 
   const systemPrompt = cfg.systemPrompt?.trim() ? `${defaultSys}\n\nUSER CUSTOM INSTRUCTIONS:\n${cfg.systemPrompt.trim()}` : defaultSys;
 
@@ -268,7 +304,8 @@ CURRENT CONTEXT:
         })
       });
       const data = await res.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || localAssistantReply(userPrompt);
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      return rawText ? detokenize(rawText) : localAssistantReply(userPrompt);
     }
 
     if (cfg.provider === 'openrouter') {
@@ -287,7 +324,8 @@ CURRENT CONTEXT:
         })
       });
       const data = await res.json();
-      return data.choices?.[0]?.message?.content || localAssistantReply(userPrompt);
+      const rawText = data.choices?.[0]?.message?.content;
+      return rawText ? detokenize(rawText) : localAssistantReply(userPrompt);
     }
 
     if (cfg.provider === 'custom') {
@@ -307,10 +345,15 @@ CURRENT CONTEXT:
         })
       });
       const data = await res.json();
-      return data.choices?.[0]?.message?.content || localAssistantReply(userPrompt);
+      const rawText = data.choices?.[0]?.message?.content;
+      return rawText ? detokenize(rawText) : localAssistantReply(userPrompt);
     }
   } catch (err) {
-    return localAssistantReply(userPrompt) + `\n\n*(Custom provider error: ${err.message || 'offline fallback'}.)*`;
+    const isCors = err.name === 'TypeError' || String(err.message || '').toLowerCase().includes('fetch');
+    const explanation = isCors
+      ? `*(⚠️ Connection blocked by browser security (CORS). Browsers stop web pages from directly reaching services like NVIDIA NIM. Get our desktop/mobile app to run any AI freely without blockers, or switch to OpenRouter / Gemini in Settings.)*`
+      : `*(Custom provider error: ${err.message || 'offline fallback'}.)*`;
+    return localAssistantReply(userPrompt) + `\n\n${explanation}`;
   }
 
   return localAssistantReply(userPrompt);
