@@ -93,16 +93,17 @@ function renderNav() {
     }
     nav.innerHTML = html;
   } else {
-    // Mobile bottom navigation: 5 slots [Home] [Funds] [Docked Add Entry] [History] [Chat]
+    // Mobile bottom navigation: 5 slots [Home] [Funds] [Pots] [History] [Chat]
     const homeOn = name === 'home' ? 'on' : '';
     const fundsOn = name === 'funds' ? 'on' : '';
+    const potsOn = name === 'pots' ? 'on' : '';
     const historyOn = name === 'history' ? 'on' : '';
     const chatOn = name === 'chat' ? 'on' : '';
 
     nav.innerHTML = `
       <a href="#/home" class="${homeOn}">${icon('home')}<span>Home</span></a>
       <a href="#/funds" class="${fundsOn}">${icon('funds')}<span>Funds</span></a>
-      <button class="nav-add-btn" data-add aria-label="Add entry" title="Add entry">${icon('plus')}</button>
+      <a href="#/pots" class="${potsOn}">${icon('pot')}<span>Pots</span></a>
       <a href="#/history" class="${historyOn}">${icon('history')}<span>History</span></a>
       <a href="#/chat" class="${chatOn}">${icon('chat')}<span>Chat</span>${badge()}</a>
     `;
@@ -192,13 +193,6 @@ window.addEventListener('keydown', e => {
 
 document.addEventListener('gesturestart', e => e.preventDefault());
 
-// Native app feel: block mobile pinch-to-zoom while preserving single-touch gestures & pull-to-refresh
-document.addEventListener('touchstart', e => {
-  if (e.touches && e.touches.length > 1) {
-    e.preventDefault();
-  }
-}, { passive: false });
-
 function updateAiFab() {
   const fab = $('#fab-ai');
   if (!fab) return;
@@ -208,6 +202,7 @@ function updateAiFab() {
 
 function renderCurrentView() {
   const { name, arg } = current();
+  document.body.dataset.route = name;
   renderNav();
   updateDp();
   updateAiFab();
@@ -417,14 +412,22 @@ const recCount = await store.runRecurring();
 if (recCount > 0) {
   toast(`📅 Auto-pilot alert: ${recCount} recurring ${recCount === 1 ? 'entry was' : 'entries were'} posted! Like clockwork ⏰✨`);
 }
+if (cloud.configured()) {
+  cloud.onChange(cloudChanged);
+  cloud.init().then(cloudChanged).catch(e => logger.warn('Cloud init failed', { error: String(e) }));
+}
 sync.schedule((k, d) => store.applyRemote(k, d, false));
 draw();
 syncWithNativeBridge();
 
-// Handle URL query parameter launch action if launched via web deep link
-const launchAction = new URLSearchParams(window.location.search).get('action');
-if (launchAction) {
-  setTimeout(() => window.hisaabAction?.(launchAction), 350);
+// Handle URL query parameter launch action or clean stray form query parameters
+if (window.location.search) {
+  const params = new URLSearchParams(window.location.search);
+  const launchAction = params.get('action');
+  if (launchAction) {
+    setTimeout(() => window.hisaabAction?.(launchAction), 350);
+  }
+  history.replaceState(null, '', window.location.pathname + (window.location.hash || '#/home'));
 }
 
 logger.info('App started', { mode: prefs().mode, theme: prefs().theme });
@@ -440,9 +443,4 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     import('./ui.js').then(ui => ui.toast('Hisaab updated · Tap to refresh'));
   });
-}
-
-if (cloud.configured()) {
-  cloud.onChange(cloudChanged);
-  cloud.init().then(cloudChanged).catch(e => logger.warn('Cloud init failed', { error: String(e) }));
 }

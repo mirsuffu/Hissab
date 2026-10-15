@@ -82,7 +82,7 @@ function list(root) {
   `;
 
   root.onclick = e => {
-    if (e.target.closest('[data-new-pot]')) openPotSheet();
+    if (e.target.closest('[data-new-pot]')) openPotSheet(null, () => gallery(root));
   };
 }
 
@@ -239,12 +239,12 @@ function openPotSheet(pot, onDone) {
     hue: 160
   };
 
-  const el = openSheet(`
+  openSheet(`
     <header class="sheet-head">
       <h2>${pot ? 'Edit Pot' : 'New Savings Pot 🏺'}</h2>
       <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
     </header>
-    <form id="pot-form" style="display:grid;gap:14px;padding:14px">
+    <form id="pot-form" onsubmit="event.preventDefault()" style="display:grid;gap:14px;padding:14px">
       <label class="field">
         <span>Pot Name</span>
         <input name="name" required class="dialog-input" placeholder="e.g. Emergency Safe, Laptop 2027, Gold Coin" value="${esc(d.name)}">
@@ -288,34 +288,34 @@ function openPotSheet(pot, onDone) {
         <button type="submit" class="btn primary" style="flex:1">${pot ? 'Save Changes' : 'Create Pot'}</button>
       </div>
     </form>
-  `);
+  `, el => {
+    sanitizeAmountInput(el.querySelector('[name=targetAmount]'));
 
-  sanitizeAmountInput(el.querySelector('[name=targetAmount]'));
+    el.querySelector('#pot-form').onsubmit = async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const name = fd.get('name').trim();
+      const targetAmount = toMinor(fd.get('targetAmount'));
+      const targetDate = fd.get('targetDate');
+      const custody = fd.get('custody');
+      const custodyName = fd.get('custodyName').trim();
+      const locked = fd.get('locked') === 'on';
 
-  el.querySelector('#pot-form').onsubmit = async e => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const name = fd.get('name').trim();
-    const targetAmount = toMinor(fd.get('targetAmount'));
-    const targetDate = fd.get('targetDate');
-    const custody = fd.get('custody');
-    const custodyName = fd.get('custodyName').trim();
-    const locked = fd.get('locked') === 'on';
+      await store.savePot({
+        ...d,
+        name,
+        targetAmount,
+        targetDate,
+        custody,
+        custodyName,
+        locked
+      });
 
-    await store.savePot({
-      ...d,
-      name,
-      targetAmount,
-      targetDate,
-      custody,
-      custodyName,
-      locked
-    });
-
-    closeSheet();
-    toast(pot ? 'Pot details sharpened and saved! 🏺✨' : 'New Pot opened! Ready to receive savings 🏺🍯');
-    onDone ? onDone() : location.reload();
-  };
+      closeSheet();
+      toast(pot ? 'Pot details sharpened and saved! 🏺✨' : 'New Pot opened! Ready to receive savings 🏺🍯');
+      onDone?.();
+    };
+  });
 }
 
 function openPotDepositSheet(pot, onDone) {
@@ -324,12 +324,12 @@ function openPotDepositSheet(pot, onDone) {
     return toast('You need at least one operational fund to deposit from!');
   }
 
-  const el = openSheet(`
+  openSheet(`
     <header class="sheet-head">
       <h2>Deposit into ${esc(pot.name)}</h2>
       <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
     </header>
-    <form id="deposit-form" style="display:grid;gap:14px;padding:14px">
+    <form id="deposit-form" onsubmit="event.preventDefault()" style="display:grid;gap:14px;padding:14px">
       <p class="muted" style="font-size:.84rem">
         Transfer money from your operational bank or cash account into this savings Pot.
       </p>
@@ -356,33 +356,33 @@ function openPotDepositSheet(pot, onDone) {
         <button type="submit" class="btn primary" style="flex:1">Confirm Deposit</button>
       </div>
     </form>
-  `);
+  `, el => {
+    sanitizeAmountInput(el.querySelector('[name=amount]'));
 
-  sanitizeAmountInput(el.querySelector('[name=amount]'));
+    el.querySelector('#deposit-form').onsubmit = async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const amount = toMinor(fd.get('amount'));
+      if (amount <= 0) return toast('Please enter a valid deposit amount!');
 
-  el.querySelector('#deposit-form').onsubmit = async e => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const amount = toMinor(fd.get('amount'));
-    if (amount <= 0) return toast('Please enter a valid deposit amount!');
+      const fundId = fd.get('fundId');
+      const note = fd.get('note').trim() || `Deposit to ${pot.name}`;
 
-    const fundId = fd.get('fundId');
-    const note = fd.get('note').trim() || `Deposit to ${pot.name}`;
+      await store.saveTxn({
+        fundId,
+        potId: pot.id,
+        type: 'in', // Enters pot
+        amount,
+        categoryId: GENERAL_ID,
+        note,
+        date: today()
+      });
 
-    await store.saveTxn({
-      fundId,
-      potId: pot.id,
-      type: 'in', // Enters pot
-      amount,
-      categoryId: GENERAL_ID,
-      note,
-      date: today()
-    });
-
-    closeSheet();
-    toast(`Deposited ${fmt(amount)} into 🏺 ${pot.name}! Steady progress ✨`);
-    onDone?.();
-  };
+      closeSheet();
+      toast(`Deposited ${fmt(amount)} into 🏺 ${pot.name}! Steady progress ✨`);
+      onDone?.();
+    };
+  });
 }
 
 function openPotWithdrawSheet(pot, currentBal, onDone) {
@@ -395,12 +395,12 @@ function openPotWithdrawSheet(pot, currentBal, onDone) {
   }
 
   const proceedWithModal = () => {
-    const el = openSheet(`
+    openSheet(`
       <header class="sheet-head">
         <h2>Withdraw from ${esc(pot.name)}</h2>
         <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
       </header>
-      <form id="withdraw-form" style="display:grid;gap:14px;padding:14px">
+      <form id="withdraw-form" onsubmit="event.preventDefault()" style="display:grid;gap:14px;padding:14px">
         <p class="muted" style="font-size:.84rem">
           Available in Pot: <b>${fmt(currentBal)}</b>. Enter the amount to return to your operational account.
         </p>
@@ -427,34 +427,34 @@ function openPotWithdrawSheet(pot, currentBal, onDone) {
           <button type="submit" class="btn primary" style="flex:1">Confirm Withdrawal</button>
         </div>
       </form>
-    `);
+    `, el => {
+      sanitizeAmountInput(el.querySelector('[name=amount]'));
 
-    sanitizeAmountInput(el.querySelector('[name=amount]'));
+      el.querySelector('#withdraw-form').onsubmit = async e => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const amount = toMinor(fd.get('amount'));
+        if (amount <= 0) return toast('Please enter a valid amount!');
+        if (amount > currentBal) return toast(`Cannot withdraw more than available pot balance (${fmt(currentBal)})!`);
 
-    el.querySelector('#withdraw-form').onsubmit = async e => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const amount = toMinor(fd.get('amount'));
-      if (amount <= 0) return toast('Please enter a valid amount!');
-      if (amount > currentBal) return toast(`Cannot withdraw more than available pot balance (${fmt(currentBal)})!`);
+        const fundId = fd.get('fundId');
+        const note = fd.get('note').trim() || `Withdrawal from ${pot.name}`;
 
-      const fundId = fd.get('fundId');
-      const note = fd.get('note').trim() || `Withdrawal from ${pot.name}`;
+        await store.saveTxn({
+          fundId,
+          potId: pot.id,
+          type: 'out', // Leaves pot
+          amount,
+          categoryId: GENERAL_ID,
+          note,
+          date: today()
+        });
 
-      await store.saveTxn({
-        fundId,
-        potId: pot.id,
-        type: 'out', // Leaves pot
-        amount,
-        categoryId: GENERAL_ID,
-        note,
-        date: today()
-      });
-
-      closeSheet();
-      toast(`Withdrew ${fmt(amount)} from 🏺 ${pot.name}!`);
-      onDone?.();
-    };
+        closeSheet();
+        toast(`Withdrew ${fmt(amount)} from 🏺 ${pot.name}!`);
+        onDone?.();
+      };
+    });
   };
 
   // Discipline Lock Guard

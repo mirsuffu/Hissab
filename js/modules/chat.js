@@ -55,52 +55,118 @@ function list(root) {
   }));
 }
 
+function docIcon(name = '') {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (['csv', 'tsv', 'xls', 'xlsx'].includes(ext)) return '📊';
+  if (['json', 'md', 'txt'].includes(ext)) return '📄';
+  if (['doc', 'docx', 'pdf'].includes(ext)) return '📑';
+  return '📎';
+}
+
+function renderTicks(m, mineMsg, chat, otherUid) {
+  if (!mineMsg) return '';
+  if (!chat) return '<span class="msg-ticks sent" title="Sent">✓</span>';
+  const unreadOther = chat.unread?.[otherUid] || 0;
+  if (unreadOther === 0) {
+    return '<span class="msg-ticks read" title="Read">✓✓</span>';
+  }
+  return '<span class="msg-ticks delivered" title="Delivered">✓✓</span>';
+}
+
 async function thread(root, otherUid) {
   const me = cloud.state().user.uid, id = cloud.chatId(me, otherUid);
   let other; try { other = await cloud.getUser(otherUid); } catch { other = null; }
   if (!other) { toast('That person could not be found'); location.hash = '#/chat'; return; }
   let chat = null, docPayload = null, currentMsgs = [];
-  root.innerHTML = `<header class="top"><div><a class="muted" href="#/chat">‹ Chats</a><h1>${esc(other.name)}</h1><p class="muted">@${esc(other.handle)}</p></div><button class="btn" data-block>Block</button></header>
-    <div id="banner"></div><div id="msgs" class="thread"></div>
-    <form id="mf" class="composer glass"><input type="file" hidden id="pick" accept=".csv,.tsv,.txt,.md,.json,.doc,.xls,.html"><button type="button" class="btn" data-attach aria-label="Attach document" title="Attach CSV, statement or document">＋</button>
-      <input name="text" placeholder="Message" autocomplete="off" aria-label="Message"><button class="btn primary">Send</button></form><p id="chip" class="muted" hidden></p>`;
+
+  root.innerHTML = `
+    <div class="chat-thread-card glass">
+      <header class="chat-thread-header">
+        <div class="chat-thread-user">
+          <a class="chat-back-btn" href="#/chat" title="Back to Chats">‹</a>
+          <div>
+            <h1 class="chat-thread-name">${esc(other.name)}</h1>
+            <p class="muted chat-thread-handle">@${esc(other.handle)}</p>
+          </div>
+        </div>
+        <button class="btn" data-block>Block</button>
+      </header>
+      <div id="banner" class="chat-banner" hidden></div>
+      <div id="msgs" class="chat-thread-msgs"></div>
+      <div class="chat-composer-wrap">
+        <p id="chip" class="chat-attach-chip" hidden></p>
+        <form id="mf" class="composer glass">
+          <input type="file" hidden id="pick" accept=".csv,.tsv,.txt,.md,.json,.doc,.xls,.html">
+          <button type="button" class="btn" data-attach aria-label="Attach document" title="Attach CSV, statement or document">＋</button>
+          <input name="text" placeholder="Message" autocomplete="off" aria-label="Message">
+          <button class="btn primary">Send</button>
+        </form>
+      </div>
+    </div>`;
+
   const $ = s => root.querySelector(s);
   const banner = () => {
     const b = $('#banner'), mine = chat?.requester === me;
-    b.innerHTML = !chat ? '<p class="muted">Your first message is sent as a request. They need to accept before you can continue.</p>'
-      : chat.status === 'pending' && !mine ? '<div class="card glass stack"><b>Message request</b><div class="row"><button class="btn primary" data-accept>Accept</button><button class="btn danger" data-decline>Block</button></div></div>'
+    if (!b) return;
+    const content = !chat ? '<p class="muted">Your first message is sent as a request. They need to accept before you can continue.</p>'
+      : chat.status === 'pending' && !mine ? '<div class="card glass stack" style="margin:4px 0"><b>Message request</b><div class="row"><button class="btn primary" data-accept>Accept</button><button class="btn danger" data-decline>Block</button></div></div>'
       : chat.status === 'pending' ? '<p class="muted">Waiting for them to accept your request.</p>'
       : chat.status === 'blocked' ? `<p class="muted">Blocked.</p>${chat.blockedBy === me ? '<button class="btn" data-unblock>Unblock</button>' : ''}` : '';
-    $('[data-block]').hidden = chat?.status === 'blocked';
+    b.innerHTML = content;
+    b.hidden = !content;
+    const blockBtn = $('[data-block]');
+    if (blockBtn) blockBtn.hidden = chat?.status === 'blocked';
   };
   banner();
-  stop.push(cloud.watchChat(id, c => { chat = c; banner(); }));
-  stop.push(cloud.watchMessages(id, msgs => {
-    currentMsgs = msgs;
+
+  const renderMessages = () => {
     const box = $('#msgs');
-    box.innerHTML = msgs.map(m => {
+    if (!box) return;
+    box.innerHTML = currentMsgs.map(m => {
       const mineMsg = m.from === me;
       let docHtml = '';
       if (m.doc) {
-        const isCsv = m.doc.name.endsWith('.csv') || m.doc.name.endsWith('.tsv') || m.doc.type === 'text/csv';
-        const formatted = isCsv ? csvToMarkdown(m.doc.content) : m.doc.content;
         docHtml = `
-          <div class="msg-doc">
-            <div class="msg-doc-hdr">
-              <span>📄 <b>${esc(m.doc.name)}</b> <small class="muted">${size(m.doc.size || m.doc.content.length)}</small></span>
-              <div class="msg-doc-actions">
-                <button type="button" class="btn-micro" data-copy-doc="${m.id}" title="Copy content">Copy</button>
-                <button type="button" class="btn-micro" data-download-doc="${m.id}" title="Download file">Save</button>
-                <button type="button" class="btn-micro" data-print-doc="${m.id}" title="Print / PDF">Print</button>
+          <div class="msg-doc-card">
+            <div class="msg-doc-left">
+              <span class="msg-doc-icon">${docIcon(m.doc.name)}</span>
+              <div class="msg-doc-details">
+                <span class="msg-doc-name" title="${esc(m.doc.name)}">${esc(m.doc.name)}</span>
+                <span class="msg-doc-size">${size(m.doc.size || m.doc.content?.length || 0)}</span>
               </div>
             </div>
-            <div class="msg-doc-body">${renderMarkdown(formatted)}</div>
+            <div class="msg-doc-btns">
+              <button type="button" class="btn-micro" data-view-doc="${m.id}" title="Preview file">View</button>
+              <button type="button" class="btn-micro" data-download-doc="${m.id}" title="Save file">Save</button>
+              <button type="button" class="btn-micro" data-copy-doc="${m.id}" title="Copy text">Copy</button>
+            </div>
           </div>`;
       }
       const textHtml = m.text ? `<div class="msg-text">${renderMarkdown(m.text)}</div>` : '';
-      return `<div class="msg ${mineMsg ? 'me' : 'them'}">${docHtml}${textHtml}<small>${time(m.ts)}</small></div>`;
+      const ticks = renderTicks(m, mineMsg, chat, otherUid);
+      return `
+        <div class="msg ${mineMsg ? 'me' : 'them'}">
+          ${docHtml}
+          ${textHtml}
+          <div class="msg-time-row">
+            <small>${time(m.ts)}</small>
+            ${ticks}
+          </div>
+        </div>`;
     }).join('') || '<div class="empty glass">Say hello 👋</div>';
-    box.lastElementChild?.scrollIntoView({ block: 'end' });
+  };
+
+  stop.push(cloud.watchChat(id, c => {
+    chat = c;
+    banner();
+    if (currentMsgs.length) renderMessages();
+  }));
+
+  stop.push(cloud.watchMessages(id, msgs => {
+    currentMsgs = msgs;
+    renderMessages();
+    const box = $('#msgs');
+    if (box) box.scrollTop = box.scrollHeight;
     if (msgs.some(m => m.from !== me)) cloud.markRead(id);
   }));
 
@@ -129,6 +195,29 @@ async function thread(root, otherUid) {
         const mid = t.closest('[data-download-doc]').dataset.downloadDoc;
         const msg = currentMsgs.find(m => m.id === mid);
         if (msg?.doc) download(msg.doc.name, msg.doc.type || 'text/plain', msg.doc.content);
+      }
+      else if (t.closest('[data-view-doc]')) {
+        const mid = t.closest('[data-view-doc]').dataset.viewDoc;
+        const msg = currentMsgs.find(m => m.id === mid);
+        if (msg?.doc) {
+          const isCsv = msg.doc.name.endsWith('.csv') || msg.doc.name.endsWith('.tsv') || msg.doc.type === 'text/csv';
+          const formatted = isCsv ? csvToMarkdown(msg.doc.content) : msg.doc.content;
+          openSheet(`
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
+              <div>
+                <h2 style="margin:0;font-size:1.15rem">${esc(msg.doc.name)}</h2>
+                <small class="muted">${size(msg.doc.size || msg.doc.content.length)}</small>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button type="button" class="btn-micro" data-download-doc="${msg.id}">Save</button>
+                <button type="button" class="btn-micro" data-print-doc="${msg.id}">Print</button>
+              </div>
+            </div>
+            <div style="max-height:65dvh;overflow-y:auto;padding:12px;background:rgba(0,0,0,.08);border-radius:var(--radius)">
+              ${renderMarkdown(formatted)}
+            </div>
+          `);
+        }
       }
       else if (t.closest('[data-print-doc]')) {
         const mid = t.closest('[data-print-doc]').dataset.printDoc;

@@ -5,10 +5,12 @@ import { logger } from './log.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2';
 const PROFILE_KEY = 'hisaab.cloud_profile';
-let cachedProfile = null;
+const USER_KEY = 'hisaab.cloud_user';
+let cachedProfile = null, cachedUser = null;
 try { cachedProfile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); } catch {}
+try { cachedUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch {}
 
-let F = null, auth, db, me = null, profile = cachedProfile, booting = null;
+let F = null, auth, db, me = cachedUser, profile = cachedProfile, booting = null;
 const subs = new Set();
 const emit = () => subs.forEach(f => f());
 
@@ -26,30 +28,30 @@ export function init() {
     const [A, Au, Fs] = await Promise.all(['app', 'auth', 'firestore'].map(m => import(`${SDK}/firebase-${m}.js`)));
     const app = A.initializeApp(firebaseConfig);
     auth = Au.getAuth(app);
-    try {
-      if (Au.setPersistence && Au.indexedDBLocalPersistence) {
-        await Au.setPersistence(auth, Au.indexedDBLocalPersistence);
-      }
-    } catch {}
     db = Fs.initializeFirestore(app, { localCache: Fs.persistentLocalCache({ tabManager: Fs.persistentMultipleTabManager() }) });
     F = { A, Au, Fs };
     await new Promise(res => {
       let first = true;
       Au.onAuthStateChanged(auth, async u => {
-        me = u;
         if (u) {
-          const fresh = await loadProfile(u.uid).catch(() => null);
-          if (fresh) {
-            profile = fresh;
-            try { localStorage.setItem(PROFILE_KEY, JSON.stringify(fresh)); } catch {}
-          } else {
-            profile = cachedProfile?.uid === u.uid ? cachedProfile : null;
-          }
+          me = u;
+          const uData = { uid: u.uid, displayName: u.displayName || '', email: u.email || '', photoURL: u.photoURL || '' };
+          try { localStorage.setItem(USER_KEY, JSON.stringify(uData)); } catch {}
+          if (first) { first = false; res(); } else emit();
+          try {
+            const fresh = await loadProfile(u.uid);
+            if (fresh) {
+              profile = fresh;
+              try { localStorage.setItem(PROFILE_KEY, JSON.stringify(fresh)); } catch {}
+              emit();
+            }
+          } catch {}
         } else {
+          me = null;
           profile = null;
-          try { localStorage.removeItem(PROFILE_KEY); } catch {}
+          try { localStorage.removeItem(USER_KEY); localStorage.removeItem(PROFILE_KEY); } catch {}
+          if (first) { first = false; res(); } else emit();
         }
-        first ? ((first = false), res()) : emit();
       });
     });
     logger.info('Cloud connected', { signedIn: !!me });
@@ -60,11 +62,25 @@ const need = () => { if (!F) throw new Error('Cloud is not ready'); if (!me) thr
 async function loadProfile(uid) { const s = await F.Fs.getDoc(F.Fs.doc(db, 'users', uid)); return s.exists() ? s.data() : null; }
 export async function getUser(uid) { need(); return loadProfile(uid); }
 
-export async function signIn() { await init(); await F.Au.signInWithPopup(auth, new F.Au.GoogleAuthProvider()); }
+export async function signIn() {
+  await init();
+  const provider = new F.Au.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const cred = await F.Au.signInWithPopup(auth, provider);
+  if (cred?.user) {
+    me = cred.user;
+    const uData = { uid: me.uid, displayName: me.displayName || '', email: me.email || '', photoURL: me.photoURL || '' };
+    try { localStorage.setItem(USER_KEY, JSON.stringify(uData)); } catch {}
+    emit();
+  }
+}
 export async function signOut() {
-  try { localStorage.removeItem(PROFILE_KEY); } catch {}
+  try { localStorage.removeItem(USER_KEY); localStorage.removeItem(PROFILE_KEY); } catch {}
+  me = null;
   profile = null;
-  await F.Au.signOut(auth);
+  if (auth && F?.Au) {
+    await F.Au.signOut(auth);
+  }
   emit();
 }
 

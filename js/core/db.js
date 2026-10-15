@@ -1,6 +1,6 @@
 // Offline-first local storage (IndexedDB). Source of truth; cloud sync is layered on top.
 // KINDS are synced records. LOCAL stores (logs) stay on this device only.
-const NAME = 'hisaab', VERSION = 5;
+const NAME = 'hisaab', VERSION = 6;
 export const KINDS = ['profiles', 'funds', 'pots', 'categories', 'parties', 'transactions', 'recurring', 'audit'];
 export const LOCAL = ['logs', 'receipts'];
 let _db;
