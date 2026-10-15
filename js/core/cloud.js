@@ -168,7 +168,7 @@ export function syncAdapter() {
 export async function wipeCloudData() {
   need();
   const { collection, getDocs, writeBatch } = F.Fs;
-  for (const kind of ['profiles', 'funds', 'categories', 'parties', 'transactions', 'recurring', 'audit']) {
+  for (const kind of ['profiles', 'funds', 'pots', 'categories', 'parties', 'transactions', 'recurring', 'audit']) {
     const snap = await getDocs(collection(db, 'users', me.uid, kind));
     if (!snap.empty) {
       const CHUNK = 450;

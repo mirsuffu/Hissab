@@ -17,7 +17,7 @@ export function render(root) {
 
   const c = cloud.state();
   const { profiles, profile } = store.live();
-  const syncOn = localStorage.getItem('hisaab.syncOn') === '1';
+  const syncOn = localStorage.getItem('hisaab.syncOn') !== '0';
 
   const avatarSrc = profile.dp || c.user?.photoURL;
   const avatar = avatarSrc

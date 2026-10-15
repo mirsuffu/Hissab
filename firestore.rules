@@ -50,14 +50,25 @@ service cloud.firestore {
       }
 
       function isMember() {
-        return isSignedIn() && (request.auth.uid in chatData().members);
+        return isSignedIn()
+          && (request.auth.uid in chatId.split('_'))
+          && (resource != null && request.auth.uid in chatData().members);
       }
 
       function isNewMember() {
-        return isSignedIn() && (request.auth.uid in request.resource.data.members);
+        return isSignedIn()
+          && (request.auth.uid in chatId.split('_'))
+          && (request.auth.uid in request.resource.data.members);
       }
 
-      allow read: if isMember();
+      // List queries: members only (satisfies where('members', 'array-contains', uid))
+      allow list: if isSignedIn() && (request.auth.uid in resource.data.members);
+
+      // Single doc get: allowed if caller is participant in chatId or existing member
+      allow get: if isSignedIn() && (
+        (request.auth.uid in chatId.split('_')) ||
+        (resource != null && request.auth.uid in resource.data.members)
+      );
 
       // Create: caller must be member, status must be pending, requester must be caller
       allow create: if isNewMember()
@@ -82,11 +93,22 @@ service cloud.firestore {
 
       // Chat messages: members only, text <= 10000 chars, optional inline doc content <= 100KB, immutable
       match /messages/{msgId} {
-        function parentChat() {
-          return get(/databases/$(database)/documents/chats/$(chatId)).data;
+        function chatPath() {
+          return /databases/$(database)/documents/chats/$(chatId);
         }
 
-        allow read: if isSignedIn() && (request.auth.uid in parentChat().members);
+        function parentChatExists() {
+          return exists(chatPath());
+        }
+
+        function parentChat() {
+          return get(chatPath()).data;
+        }
+
+        allow read: if isSignedIn() && (
+          (request.auth.uid in chatId.split('_')) ||
+          (parentChatExists() && request.auth.uid in parentChat().members)
+        );
 
         allow create: if isSignedIn()
           && request.resource.data.from == request.auth.uid
@@ -97,8 +119,14 @@ service cloud.firestore {
             request.resource.data.doc.content.size() <= 100000
           ))
           && (
-            parentChat().status == 'accepted' ||
-            (parentChat().status == 'pending' && parentChat().requester == request.auth.uid && parentChat().createdAt == request.resource.data.ts)
+            (
+              parentChatExists()
+              && (request.auth.uid in parentChat().members)
+              && parentChat().status != 'blocked'
+            ) || (
+              !parentChatExists()
+              && (request.auth.uid in chatId.split('_'))
+            )
           );
 
         allow update, delete: if false;
@@ -106,4 +134,3 @@ service cloud.firestore {
     }
   }
 }
-

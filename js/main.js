@@ -260,17 +260,22 @@ sync.onSyncActivity(() => {
 let syncUid = '', unwatch = null, seen = {};
 async function cloudChanged() {
   const s = cloud.state();
+  const syncEnabled = !!(s.user && localStorage.getItem('hisaab.syncOn') !== '0');
   try {
-    if (s.user && localStorage.getItem('hisaab.syncOn') === '1' && syncUid !== s.user.uid) {
-      syncUid = s.user.uid;
-      await sync.connect(cloud.syncAdapter());
-      await sync.pushAll(store.allDocs());
-      await sync.pull((k, d) => store.applyRemote(k, d, false));
-      sync.schedule((k, d) => store.applyRemote(k, d, false));
-      store.touch();
-    } else if (!s.user && syncUid) {
-      syncUid = '';
-      sync.disconnect();
+    if (syncEnabled) {
+      if (syncUid !== s.user.uid) {
+        syncUid = s.user.uid;
+        await sync.connect(cloud.syncAdapter());
+        await sync.pushAll(store.allDocs());
+        await sync.pull((k, d) => store.applyRemote(k, d, false));
+        sync.schedule((k, d) => store.applyRemote(k, d, false));
+        store.touch();
+      }
+    } else {
+      if (syncUid) {
+        syncUid = '';
+        sync.disconnect();
+      }
     }
   } catch (e) {
     logger.warn('Cloud sync setup failed', { error: String(e) });
@@ -291,6 +296,7 @@ async function cloudChanged() {
     }
   });
   updateDp();
+  updateSyncChip();
   draw();
 }
 
