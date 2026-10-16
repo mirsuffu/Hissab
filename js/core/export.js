@@ -1,5 +1,6 @@
 // Statement engine: filter -> model -> any output (CSV, text, HTML for PDF/Excel/Word, PNG image).
 import { fmt } from './models.js';
+import { fundSigned } from './calc.js';
 
 export const FIELDS = { date: 'Date', fund: 'Fund', category: 'Category', party: 'Party', type: 'Type', amount: 'Amount', comment: 'Comment', balance: 'Balance', id: 'Entry ID', edited: 'Last edited' };
 export const DEFAULT_FIELDS = ['date', 'category', 'party', 'comment', 'amount'];
@@ -8,8 +9,9 @@ export function buildModel(L, o) {
   const map = l => Object.fromEntries(l.map(x => [x.id, x.name]));
   const fund = map(L.allFunds), cat = map(L.allCategories), party = map(L.allParties);
   const inPeriod = d => ({ day: d === o.date, month: d.startsWith(o.month), year: d.startsWith(o.year), range: (!o.from || d >= o.from) && (!o.to || d <= o.to), all: true })[o.period];
+  const isFundInflow = t => (t.potId ? t.type === 'out' : t.type === 'in');
   let rows = L.txns.filter(t => inPeriod(t.date) && (!o.fundId || t.fundId === o.fundId) && (!o.categoryId || t.categoryId === o.categoryId)
-      && (!o.partyId || t.partyId === o.partyId) && (o.type === 'all' || t.type === o.type))
+      && (!o.partyId || t.partyId === o.partyId) && (o.type === 'all' || (o.type === 'in' ? isFundInflow(t) : !isFundInflow(t))))
     .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
   let balBf = 0;
   if (o.fundId) {
@@ -30,15 +32,30 @@ export function buildModel(L, o) {
 
   const priorTxns = L.txns.filter(t => isBeforePeriod(t.date) && (!o.fundId || t.fundId === o.fundId));
   for (const t of priorTxns) {
-    balBf += (t.type === 'in' ? t.amount : -t.amount);
+    balBf += fundSigned(t);
   }
 
   let bal = balBf, income = 0, expense = 0;
-  rows = rows.map(t => { const s = t.type === 'in' ? t.amount : -t.amount; bal += s; s > 0 ? (income += s) : (expense -= s); return { t, bal }; });
+  rows = rows.map(t => {
+    const s = fundSigned(t);
+    bal += s;
+    if (!t.potId) {
+      s > 0 ? (income += s) : (expense -= s);
+    }
+    return { t, bal };
+  });
   if (o.sort === 'desc') rows.reverse();
   const cell = {
-    date: r => r.t.date, fund: r => fund[r.t.fundId] || '', category: r => cat[r.t.categoryId] || 'General', party: r => party[r.t.partyId] || '',
-    type: r => (r.t.type === 'in' ? 'Received' : 'Spent'), amount: r => (r.t.type === 'in' ? '+' : '-') + fmt(r.t.amount), comment: r => r.t.note || '',
+    date: r => r.t.date, fund: r => fund[r.t.fundId] || '', category: r => r.t.potId ? 'Pot Transfer' : (cat[r.t.categoryId] || 'General'), party: r => party[r.t.partyId] || '',
+    type: r => {
+      if (r.t.potId) return r.t.type === 'in' ? 'To Pot' : 'From Pot';
+      return r.t.type === 'in' ? 'Received' : 'Spent';
+    },
+    amount: r => {
+      const isFundInflow = r.t.potId ? r.t.type === 'out' : r.t.type === 'in';
+      return (isFundInflow ? '+' : '-') + fmt(r.t.amount);
+    },
+    comment: r => r.t.note || '',
     balance: r => fmt(r.bal), id: r => r.t.id.slice(0, 8), edited: r => new Date(r.t.updatedAt || r.t.createdAt).toLocaleString(),
   };
   const cols = o.fields.filter(f => cell[f]);

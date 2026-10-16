@@ -18,9 +18,9 @@ function list(root) {
     <header class="top">
       <div>
         <h1>Funds</h1>
-        <p class="muted" style="font-size:.82rem">Operational accounts · <a href="#/pots" style="color:var(--accent);font-weight:600">Switch to Pots 🏺 ›</a></p>
+        <p class="muted" style="font-size:.82rem">Operational accounts & ledgers</p>
       </div>
-      <button class="btn primary" data-new>New fund</button>
+      <button class="btn primary" data-new style="white-space:nowrap;font-size:.84rem;padding:7px 16px;border-radius:99px">+ New Fund</button>
     </header>
     ${groups.map(g => `<section class="stack"><div><h2>${g.label}</h2><p class="muted">${g.hint}</p></div><div class="grid grid-funds">${g.items.map(f => tile(f, txns)).join('')}</div></section>`).join('')
       || '<div class="empty glass"><p>Create a fund for anything you track separately: wallet, a goal, or money held for someone.</p></div>'}
@@ -107,8 +107,8 @@ function detail(root, id) {
   if (!f) { location.hash = '#/funds'; return; }
   const mine = txns.filter(t => t.fundId === id).sort((p, q) => q.date.localeCompare(p.date) || (q.createdAt || 0) - (p.createdAt || 0));
   const [a, b] = monthRange(), m = meter(f, txns, a, b);
-  const received = f.opening + mine.filter(t => t.type === 'in').reduce((x, t) => x + t.amount, 0);
-  const spent = mine.filter(t => t.type === 'out').reduce((x, t) => x + t.amount, 0);
+  const received = f.opening + mine.filter(t => (t.potId ? t.type === 'out' : t.type === 'in')).reduce((x, t) => x + t.amount, 0);
+  const spent = mine.filter(t => (t.potId ? t.type === 'in' : t.type === 'out')).reduce((x, t) => x + t.amount, 0);
     const bal = fundBalance(f, txns);
     const brsOn = prefs().brsEnabled !== false && !f.deleted && !f.archived && f.type !== 'held';
     root.innerHTML = `
@@ -155,8 +155,10 @@ const statement = (f, rows, L, received, spent, bal) => [
   `${f.name}${f.holder ? ` — held for ${f.holder}` : ''}`,
   `Received: ${fmt(received)}`, `Spent: ${fmt(spent)}`, `Balance: ${fmt(bal)}`, '',
   ...[...rows].reverse().map(r => {
-    const cat = L.allCategories.find(c => c.id === r.categoryId)?.name, party = L.allParties.find(p => p.id === r.partyId)?.name;
-    return `${r.date}  ${r.type === 'in' ? '+' : '-'}${fmt(r.amount)}  ${[cat, party, r.note].filter(Boolean).join(' · ')}`;
+    const isFundInflow = r.potId ? r.type === 'out' : r.type === 'in';
+    const cat = r.potId ? 'Pot Transfer' : (L.allCategories.find(c => c.id === r.categoryId)?.name);
+    const party = L.allParties.find(p => p.id === r.partyId)?.name;
+    return `${r.date}  ${isFundInflow ? '+' : '-'}${fmt(r.amount)}  ${[cat, party, r.note].filter(Boolean).join(' · ')}`;
   }),
 ].join('\n');
 

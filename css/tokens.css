@@ -2,7 +2,7 @@
    Users customise these at runtime from Settings (see js/core/prefs.js). ===== */
 :root{
   --accent-h:162; --accent-s:52%;
-  --radius:22px; --blur:18px; --density:1;
+  --radius:22px; --blur:12px; --density:1;
   --font:"Manrope","Avenir Next",ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif;
   --accent:hsl(var(--accent-h) var(--accent-s) 42%);
   --accent-soft:hsl(var(--accent-h) var(--accent-s) 42% / .16);

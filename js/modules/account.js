@@ -11,7 +11,7 @@ export function render(root) {
   if (!root._cloudSubscribed) {
     root._cloudSubscribed = true;
     cloud.onChange(() => {
-      if (root.isConnected) render(root);
+      if (root.isConnected && location.hash.startsWith('#/account')) render(root);
     });
   }
 

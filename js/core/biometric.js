@@ -123,20 +123,18 @@ export async function authenticateBiometric(reason = 'Verify your identity to un
       const challenge = new Uint8Array(32);
       crypto.getRandomValues(challenge);
       const credIdB64 = localStorage.getItem('hisaab.bio_cred_id');
+      if (!credIdB64) return false;
       
       const pubKeyOpts = {
         challenge,
         timeout: 60000,
-        userVerification: 'required'
-      };
-
-      if (credIdB64) {
-        pubKeyOpts.allowCredentials = [{
+        userVerification: 'required',
+        allowCredentials: [{
           id: Uint8Array.from(atob(credIdB64), c => c.charCodeAt(0)),
           type: 'public-key',
           transports: ['internal']
-        }];
-      }
+        }]
+      };
 
       const cred = await navigator.credentials.get({ publicKey: pubKeyOpts });
       return !!cred;

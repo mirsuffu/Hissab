@@ -22,13 +22,13 @@ function list(root) {
     <header class="top">
       <div>
         <h1>Pots</h1>
-        <p class="muted" style="font-size:.82rem">Dedicated savings reservoirs · <a href="#/funds" style="color:var(--accent);font-weight:600">Switch to Funds 💼 ›</a></p>
+        <p class="muted" style="font-size:.82rem">Dedicated savings reservoirs</p>
       </div>
-      <button class="btn primary" data-new-pot>+ New Pot</button>
+      <button class="btn primary" data-new-pot style="white-space:nowrap;font-size:.84rem;padding:7px 16px;border-radius:99px">+ New Pot</button>
     </header>
 
     ${pots.length ? `
-      <div class="card glass" style="margin-bottom:20px;padding:16px;border-left:4px solid var(--accent)">
+      <div class="card glass" style="margin-bottom:20px;padding:16px;border:1px solid var(--glass-line);border-radius:var(--radius);background:var(--bg);box-shadow:4px 4px 12px var(--sh-lo),-4px -4px 12px var(--sh-hi)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
           <div>
             <span class="label" style="text-transform:uppercase;font-weight:700">Total Savings in Pots</span>
@@ -43,8 +43,8 @@ function list(root) {
     ` : ''}
 
     <section class="stack">
-      <div class="grid grid-funds">
-        ${pots.map(p => potCard(p, L)).join('')}
+      <div class="pots-stack-list">
+        ${pots.map(p => potCardFull(p, L)).join('')}
       </div>
 
       ${!pots.length ? `
@@ -82,42 +82,42 @@ function list(root) {
   `;
 
   root.onclick = e => {
-    if (e.target.closest('[data-new-pot]')) openPotSheet(null, () => gallery(root));
+    if (e.target.closest('[data-new-pot]')) openPotSheet(null, () => list(root));
   };
 }
 
-function potCard(p, L) {
+function potCardFull(p, L) {
   const bal = potBalance(p, L.txns);
   const vel = potVelocity(p, bal);
   const custodyMeta = POT_CUSTODY[p.custody] || POT_CUSTODY.custom;
 
   return `
-    <a class="tile raised" href="#/pots/${p.id}" style="position:relative;display:flex;flex-direction:column;justify-content:space-between">
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
-          <span style="font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:6px">
-            ${dot(p.hue)}${esc(p.name)}
-          </span>
-          <div style="display:flex;gap:4px;align-items:center">
-            ${p.locked ? '<span title="Discipline Lock Active" style="font-size:.85rem">🔒</span>' : ''}
-            <span class="badge" style="font-size:.7rem;padding:2px 6px">${custodyMeta.icon} ${esc(p.custodyName || custodyMeta.label)}</span>
-          </div>
+    <a class="card raised pot-card-full" href="#/pots/${p.id}" style="display:flex;flex-direction:column;gap:10px;padding:14px 16px;text-decoration:none;color:inherit;border-radius:var(--radius)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          ${dot(p.hue)}
+          <span style="font-weight:750;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</span>
+          ${p.locked ? '<span title="Discipline Lock Active" style="font-size:.9rem;flex-shrink:0">🔒</span>' : ''}
         </div>
-
-        <div style="margin-top:12px">
-          <b style="font-size:1.4rem;color:var(--ink)">${fmt(bal)}</b>
-          ${p.targetAmount ? `<span class="muted" style="font-size:.8rem;display:block">Target: ${fmt(p.targetAmount)}</span>` : ''}
-        </div>
+        <span class="badge" style="font-size:.72rem;padding:3px 8px;border-radius:99px;flex-shrink:0;background:var(--bg);border:1px solid var(--glass-line)">
+          ${custodyMeta.icon} ${esc(p.custodyName || custodyMeta.label)}
+        </span>
       </div>
 
-      <div style="margin-top:14px">
-        ${p.targetAmount ? `
-          <div class="meter inset" style="height:7px;margin-bottom:6px">
-            <i style="width:${vel.pct}%;background:hsl(${p.hue} 60% 50%)"></i>
-          </div>
-          <span class="label" style="font-size:.75rem;color:var(--ink-2)">${esc(vel.label)}</span>
-        ` : `<span class="label" style="font-size:.75rem;color:var(--ink-2)">No target deadline</span>`}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:2px">
+        <b style="font-size:1.5rem;font-weight:800;color:var(--ink);letter-spacing:-.02em">${fmt(bal)}</b>
+        ${p.targetAmount ? `<span class="muted" style="font-size:.82rem;font-weight:550">Target: ${fmt(p.targetAmount)} · <span class="${vel.pct >= 100 ? 'pos' : ''}">${vel.pct}%</span></span>` : ''}
       </div>
+
+      ${p.targetAmount ? `
+        <div class="meter inset" style="height:7px;border-radius:99px;background:var(--bg);overflow:hidden">
+          <i style="width:${vel.pct}%;background:hsl(${p.hue} 65% 50%);border-radius:99px;display:block;height:100%"></i>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:var(--ink-2)">
+          <span>${esc(vel.label)}</span>
+          ${p.targetDate ? `<span>Target: ${new Date(p.targetDate).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' })}</span>` : ''}
+        </div>
+      ` : `<div style="font-size:.76rem;color:var(--ink-2)">No target deadline</div>`}
     </a>
   `;
 }

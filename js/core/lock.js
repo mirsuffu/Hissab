@@ -135,10 +135,10 @@ export function lockNow() {
         <p class="lock-sub muted">App locked to protect your records</p>
       </div>
       <p class="muted" id="lockmsg" role="alert" style="min-height:18px;font-size:.82rem"></p>
-      <form id="pass-form" style="display:grid;gap:14px;margin:10px 0">
+      <form id="pass-form" style="display:grid;gap:14px;margin:10px 0" autocomplete="off">
         <div style="position:relative;display:flex;align-items:center">
-          <input id="pass-input" type="password" autocomplete="off" data-lpignore="true" spellcheck="false"
-            placeholder="Enter password" class="dialog-input" style="padding-right:42px" required autofocus>
+          <input id="pass-input" type="text" name="hisaab_auth_token" autocomplete="off" data-lpignore="true" data-form-type="other" spellcheck="false"
+            placeholder="Enter password" class="dialog-input" style="padding-right:42px;-webkit-text-security:disc" required autofocus>
           <button type="button" id="pass-toggle-btn" class="icon-btn" aria-label="Toggle password visibility"
             style="position:absolute;right:6px;width:32px;height:32px;box-shadow:none;background:transparent">
             <svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -336,7 +336,8 @@ export function lockNow() {
     const toggle = el.querySelector('#pass-toggle-btn');
 
     toggle?.addEventListener('click', () => {
-      input.type = input.type === 'password' ? 'text' : 'password';
+      const isMasked = input.style.webkitTextSecurity !== 'none';
+      input.style.webkitTextSecurity = isMasked ? 'none' : 'disc';
     });
 
     form.onsubmit = async e => {
@@ -517,8 +518,8 @@ export function lockNow() {
           <h2 class="lock-title">Reset Security Lock</h2>
           <p class="lock-sub muted">Enter Master Recovery Passphrase to unlock</p>
         </div>
-        <form id="rec-form" class="form" style="display:grid;gap:12px;margin:12px 0">
-          <input class="dialog-input" type="password" name="phrase" autocomplete="off" placeholder="Master Recovery Passphrase" autofocus required>
+        <form id="rec-form" class="form" style="display:grid;gap:12px;margin:12px 0" autocomplete="off">
+          <input class="dialog-input" type="text" name="hisaab_recovery_phrase" autocomplete="off" data-lpignore="true" data-form-type="other" placeholder="Master Recovery Passphrase" style="-webkit-text-security:disc" autofocus required>
           <p class="muted" id="rec-msg" style="min-height:16px;font-size:.82rem"></p>
           <div class="dialog-actions" style="justify-content:center;gap:8px">
             <button type="button" class="btn" id="btn-cancel-rec">Cancel</button>
@@ -538,7 +539,7 @@ export function lockNow() {
 
       card.querySelector('#rec-form').onsubmit = async evt => {
         evt.preventDefault();
-        const p = evt.target.phrase.value;
+        const p = evt.target.hisaab_recovery_phrase.value;
         const rMsg = card.querySelector('#rec-msg');
         if (await verifyRecovery(p)) {
           clearPin();

@@ -18,7 +18,7 @@ const link = (href, title, sub) => `<a class="row-item" href="${href}">${title}<
 
 export function render(root) {
   const p = prefs(), { profiles, profile, pots } = store.live(), aiCfg = getAiConfig();
-  if (cloud.configured() && !cloud.state().ready) cloud.init().then(() => render(root)).catch(e => logger.warn('Cloud init failed', { error: String(e) }));
+  if (cloud.configured() && !cloud.state().ready) cloud.init().then(() => { if (location.hash.startsWith('#/settings')) render(root); }).catch(e => logger.warn('Cloud init failed', { error: String(e) }));
 
   const openIndexes = [];
   root.querySelectorAll('details.settings-acc').forEach((d, idx) => {
@@ -616,24 +616,253 @@ export function openContactDevModal() {
   });
 }
 
+function initPatternCanvas(canvas, { onEnd }) {
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width, padding = Math.round(size * 0.166), gap = (size - 2 * padding) / 2;
+  const dots = [];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      dots.push({ idx: r * 3 + c, x: padding + c * gap, y: padding + r * gap });
+    }
+  }
+
+  let activeSeq = [];
+  let isDrawing = false;
+  let curPointer = null;
+
+  const drawGrid = () => {
+    ctx.clearRect(0, 0, size, size);
+    if (activeSeq.length > 1) {
+      ctx.beginPath();
+      const first = dots[activeSeq[0]];
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < activeSeq.length; i++) {
+        const pt = dots[activeSeq[i]];
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.strokeStyle = 'hsl(var(--accent-h) var(--accent-s) 52%)';
+      ctx.lineWidth = 4.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+    if (isDrawing && curPointer && activeSeq.length > 0) {
+      const last = dots[activeSeq[activeSeq.length - 1]];
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(curPointer.x, curPointer.y);
+      ctx.strokeStyle = 'hsl(var(--accent-h) var(--accent-s) 52% / 0.5)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    dots.forEach(d => {
+      const isSel = activeSeq.includes(d.idx);
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, isSel ? 10 : 7, 0, Math.PI * 2);
+      ctx.fillStyle = isSel ? 'hsl(var(--accent-h) var(--accent-s) 52%)' : 'rgba(150, 150, 150, 0.4)';
+      ctx.fill();
+      if (isSel) {
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, 18, 0, Math.PI * 2);
+        ctx.strokeStyle = 'hsl(var(--accent-h) var(--accent-s) 52% / 0.35)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    });
+  };
+
+  drawGrid();
+
+  const getCoord = e => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const checkHit = pt => {
+    for (const d of dots) {
+      if (!activeSeq.includes(d.idx) && Math.hypot(d.x - pt.x, d.y - pt.y) < 24) return d.idx;
+    }
+    return null;
+  };
+
+  const connectDot = dotIdx => {
+    const added = lock.resolvePatternBridges(activeSeq, dotIdx);
+    if (added && added.length > 0) {
+      activeSeq.push(...added);
+      triggerHaptic(6);
+      playTick();
+      drawGrid();
+    }
+  };
+
+  const startDraw = e => {
+    isDrawing = true;
+    activeSeq = [];
+    try { canvas.setPointerCapture(e.pointerId); } catch {}
+    const pt = getCoord(e);
+    curPointer = pt;
+    const hit = checkHit(pt);
+    if (hit !== null) connectDot(hit);
+    drawGrid();
+  };
+
+  const moveDraw = e => {
+    if (!isDrawing) return;
+    const pt = getCoord(e);
+    curPointer = pt;
+    const hit = checkHit(pt);
+    if (hit !== null) connectDot(hit);
+    drawGrid();
+  };
+
+  const endDraw = e => {
+    if (!isDrawing) return;
+    isDrawing = false;
+    curPointer = null;
+    try { if (e?.pointerId) canvas.releasePointerCapture(e.pointerId); } catch {}
+    drawGrid();
+    onEnd?.(activeSeq, () => {
+      activeSeq = [];
+      drawGrid();
+    });
+  };
+
+  canvas.addEventListener('pointerdown', startDraw);
+  canvas.addEventListener('pointermove', moveDraw);
+  canvas.addEventListener('pointerup', endDraw);
+  canvas.addEventListener('pointercancel', endDraw);
+
+  return {
+    clear: () => {
+      activeSeq = [];
+      drawGrid();
+    },
+    draw: drawGrid,
+    getSequence: () => [...activeSeq]
+  };
+}
+
+function openVerifyPatternStep(root) {
+  openSheet(`
+    <h2>Verify Current Pattern ⠇</h2>
+    <p class="muted">Draw your current pattern to authorize changing the lock.</p>
+    <div style="display:grid;gap:10px;text-align:center;margin:12px auto">
+      <p class="muted" id="verify-pat-status" style="font-size:.84rem;margin:0">Draw current pattern:</p>
+      <div style="position:relative;width:240px;height:240px;margin:4px auto;touch-action:none">
+        <canvas id="verify-pat-canvas" width="240" height="240" style="display:block;width:240px;height:240px;border-radius:14px;background:var(--bg);box-shadow:inset 3px 3px 7px var(--sh-lo), inset -3px -3px 7px var(--sh-hi)"></canvas>
+      </div>
+      <div>
+        <button type="button" class="btn-micro" id="btn-verify-clear">Clear</button>
+        <button type="button" class="btn-micro" data-close style="margin-left:8px">Cancel</button>
+      </div>
+    </div>
+  `, el => {
+    const canvas = el.querySelector('#verify-pat-canvas');
+    const status = el.querySelector('#verify-pat-status');
+    const patHandler = initPatternCanvas(canvas, {
+      onEnd: async (seq, reset) => {
+        if (seq.length < 4) {
+          status.textContent = '⚠️ Pattern needs at least 4 dots. Redraw:';
+          status.style.color = 'var(--neg)';
+          return;
+        }
+        const patternStr = seq.join('-');
+        if (await lock.verify(patternStr)) {
+          toast('Current pattern verified! 👍');
+          openNewLockSetup(root);
+        } else {
+          status.textContent = '❌ Incorrect pattern! Try again:';
+          status.style.color = 'var(--neg)';
+          triggerHaptic(30);
+          setTimeout(reset, 400);
+        }
+      }
+    });
+    el.querySelector('#btn-verify-clear')?.addEventListener('click', () => {
+      patHandler.clear();
+      status.textContent = 'Draw current pattern:';
+      status.style.color = '';
+    });
+  });
+}
+
+function openVerifyPinStep(root) {
+  openSheet(`
+    <h2>Verify Current PIN 🔢</h2>
+    <p class="muted">Enter your current PIN to authorize changing the lock.</p>
+    <form id="verify-pin-form" class="form" style="display:grid;gap:14px;margin-top:10px" autocomplete="off">
+      <label class="field">
+        <span>Current PIN</span>
+        <input type="text" inputmode="numeric" name="hisaab_auth_token" maxlength="8" autocomplete="off" data-lpignore="true" data-form-type="other" required placeholder="Enter current PIN" autofocus class="dialog-input" style="-webkit-text-security:disc">
+      </label>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button type="button" class="btn" data-close style="flex:1">Cancel</button>
+        <button type="submit" class="btn primary" style="flex:1">Verify & Continue</button>
+      </div>
+    </form>
+  `, el => {
+    el.querySelector('#verify-pin-form').onsubmit = async evt => {
+      evt.preventDefault();
+      const val = evt.target.hisaab_auth_token.value.trim();
+      if (await lock.verify(val)) {
+        toast('Current PIN verified! 👍');
+        openNewLockSetup(root);
+      } else {
+        toast('Current PIN is incorrect! 🧐');
+        triggerHaptic(30);
+      }
+    };
+  });
+}
+
+function openVerifyPasswordStep(root) {
+  openSheet(`
+    <h2>Verify Current Password 🔑</h2>
+    <p class="muted">Enter your current password to authorize changing the lock.</p>
+    <form id="verify-pass-form" class="form" style="display:grid;gap:14px;margin-top:10px" autocomplete="off">
+      <label class="field">
+        <span>Current Password</span>
+        <input type="text" name="hisaab_auth_token" autocomplete="off" data-lpignore="true" data-form-type="other" required placeholder="Enter current password" autofocus class="dialog-input" style="-webkit-text-security:disc">
+      </label>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button type="button" class="btn" data-close style="flex:1">Cancel</button>
+        <button type="submit" class="btn primary" style="flex:1">Verify & Continue</button>
+      </div>
+    </form>
+  `, el => {
+    el.querySelector('#verify-pass-form').onsubmit = async evt => {
+      evt.preventDefault();
+      const val = evt.target.hisaab_auth_token.value;
+      if (await lock.verify(val)) {
+        toast('Current password verified! 👍');
+        openNewLockSetup(root);
+      } else {
+        toast('Current password is incorrect! 🧐');
+        triggerHaptic(30);
+      }
+    };
+  });
+}
+
 export function openSetLockModal(root) {
-  const isExisting = lock.hasLock();
-  const curType = lock.lockType() || 'pin';
-  let selectedType = curType;
+  if (lock.hasLock()) {
+    const curType = lock.lockType() || 'pin';
+    if (curType === 'pattern') return openVerifyPatternStep(root);
+    if (curType === 'password') return openVerifyPasswordStep(root);
+    return openVerifyPinStep(root);
+  }
+  openNewLockSetup(root);
+}
+
+function openNewLockSetup(root) {
+  let selectedType = lock.lockType() || 'pin';
   let recordedPattern = '';
 
   openSheet(`
-    <h2>${isExisting ? 'Change Security Lock 🔒' : 'Set Security Lock 🔒'}</h2>
+    <h2>${lock.hasLock() ? 'Set New Security Lock 🔒' : 'Set Security Lock 🔒'}</h2>
     <p class="muted">Protect app access on unattended devices.</p>
 
-    <form id="lock-setup-form" class="form" style="display:grid;gap:12px;margin-top:6px">
-      ${isExisting ? `
-        <label class="field">
-          <span>Current Lock Secret / PIN / Password</span>
-          <input type="password" name="curSecret" required placeholder="Enter current lock code" autocomplete="off">
-        </label>
-      ` : ''}
-
+    <form id="lock-setup-form" class="form" style="display:grid;gap:12px;margin-top:6px" autocomplete="off">
       <label class="field"><span>Lock Type</span></label>
       <div class="seg" id="sec-type-seg">
         <label><input type="radio" name="lockTypeChoice" value="pin" ${selectedType === 'pin' ? 'checked' : ''}><span>🔢 PIN</span></label>
@@ -645,11 +874,11 @@ export function openSetLockModal(root) {
       <div id="sec-pin-panel" ${selectedType === 'pin' ? '' : 'hidden'} style="display:grid;gap:10px">
         <label class="field">
           <span>New PIN (4–8 digits)</span>
-          <input type="text" inputmode="numeric" name="pin" maxlength="8" autocomplete="off" data-lpignore="true" placeholder="4 to 8 digits" style="-webkit-text-security:disc">
+          <input type="text" inputmode="numeric" name="hisaab_new_pin" maxlength="8" autocomplete="off" data-lpignore="true" data-form-type="other" placeholder="4 to 8 digits" style="-webkit-text-security:disc">
         </label>
         <label class="field">
           <span>Confirm PIN</span>
-          <input type="text" inputmode="numeric" name="pinConfirm" maxlength="8" autocomplete="off" data-lpignore="true" placeholder="Re-enter PIN" style="-webkit-text-security:disc">
+          <input type="text" inputmode="numeric" name="hisaab_new_pin_confirm" maxlength="8" autocomplete="off" data-lpignore="true" data-form-type="other" placeholder="Re-enter PIN" style="-webkit-text-security:disc">
         </label>
       </div>
 
@@ -668,22 +897,25 @@ export function openSetLockModal(root) {
       <div id="sec-pass-panel" ${selectedType === 'password' ? '' : 'hidden'} style="display:grid;gap:10px">
         <label class="field">
           <span>New Password</span>
-          <input type="password" name="pass" minlength="4" autocomplete="new-password" placeholder="Min 4 characters">
+          <input type="text" name="hisaab_new_pass" minlength="4" autocomplete="off" data-lpignore="true" data-form-type="other" placeholder="Min 4 characters" style="-webkit-text-security:disc">
         </label>
         <label class="field">
           <span>Confirm Password</span>
-          <input type="password" name="passConfirm" minlength="4" autocomplete="new-password" placeholder="Re-type password">
+          <input type="text" name="hisaab_new_pass_confirm" minlength="4" autocomplete="off" data-lpignore="true" data-form-type="other" placeholder="Re-type password" style="-webkit-text-security:disc">
         </label>
       </div>
 
       <!-- Master Recovery Passphrase -->
       <label class="field" style="margin-top:4px">
         <span>Master Recovery Passphrase (Recommended)</span>
-        <input type="text" name="recovery" placeholder="e.g. secret recovery word (used if forgotten)">
+        <input type="text" name="recovery" placeholder="e.g. secret recovery word (used if forgotten)" autocomplete="off" data-lpignore="true">
         <small class="muted" style="font-size:.74rem">If you ever forget your lock, this phrase safely resets it.</small>
       </label>
 
-      <button type="submit" class="btn primary" style="margin-top:6px">Save Lock</button>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button type="button" class="btn" data-close style="flex:1">Cancel</button>
+        <button type="submit" class="btn primary" style="flex:1">Save Lock</button>
+      </div>
     </form>
   `, el => {
     const form = el.querySelector('#lock-setup-form');
@@ -695,174 +927,61 @@ export function openSetLockModal(root) {
     const canvas = el.querySelector('#pat-canvas');
     const clearBtn = el.querySelector('#btn-clear-pat');
 
+    let patHandler = null;
+    if (canvas) {
+      patHandler = initPatternCanvas(canvas, {
+        onEnd: seq => {
+          if (seq.length < 4) {
+            patStatus.textContent = '⚠️ Pattern needs at least 4 dots. Redraw:';
+            patStatus.style.color = 'var(--neg)';
+            recordedPattern = '';
+          } else {
+            recordedPattern = seq.join('-');
+            patStatus.textContent = `✓ Pattern recorded (${seq.length} dots connected)!`;
+            patStatus.style.color = 'var(--pos)';
+          }
+        }
+      });
+    }
+
     const updatePanels = type => {
       selectedType = type;
       pinPanel.hidden = type !== 'pin';
       patPanel.hidden = type !== 'pattern';
       passPanel.hidden = type !== 'password';
-      if (type === 'pattern') drawPatGrid();
+      if (type === 'pattern' && patHandler) patHandler.draw();
     };
 
     seg?.addEventListener('change', e => {
       if (e.target.name === 'lockTypeChoice') updatePanels(e.target.value);
     });
 
-    // Pattern Canvas Setup
-    const ctx = canvas.getContext('2d');
-    const size = 240, padding = 40, gap = (size - 2 * padding) / 2;
-    const dots = [];
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 3; c++) {
-        dots.push({ idx: r * 3 + c, x: padding + c * gap, y: padding + r * gap });
-      }
-    }
-
-    let activeSeq = [];
-    let isDrawing = false;
-    let curPointer = null;
-
-    const drawPatGrid = () => {
-      ctx.clearRect(0, 0, size, size);
-      if (activeSeq.length > 1) {
-        ctx.beginPath();
-        const first = dots[activeSeq[0]];
-        ctx.moveTo(first.x, first.y);
-        for (let i = 1; i < activeSeq.length; i++) {
-          const pt = dots[activeSeq[i]];
-          ctx.lineTo(pt.x, pt.y);
-        }
-        ctx.strokeStyle = 'hsl(var(--accent-h) var(--accent-s) 52%)';
-        ctx.lineWidth = 4.5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke();
-      }
-      if (isDrawing && curPointer && activeSeq.length > 0) {
-        const last = dots[activeSeq[activeSeq.length - 1]];
-        ctx.beginPath();
-        ctx.moveTo(last.x, last.y);
-        ctx.lineTo(curPointer.x, curPointer.y);
-        ctx.strokeStyle = 'hsl(var(--accent-h) var(--accent-s) 52% / 0.5)';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      }
-      dots.forEach(d => {
-        const isSel = activeSeq.includes(d.idx);
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, isSel ? 10 : 7, 0, Math.PI * 2);
-        ctx.fillStyle = isSel ? 'hsl(var(--accent-h) var(--accent-s) 52%)' : 'rgba(150, 150, 150, 0.4)';
-        ctx.fill();
-        if (isSel) {
-          ctx.beginPath();
-          ctx.arc(d.x, d.y, 18, 0, Math.PI * 2);
-          ctx.strokeStyle = 'hsl(var(--accent-h) var(--accent-s) 52% / 0.35)';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-      });
-    };
-
-    drawPatGrid();
-
-    const getCoord = e => {
-      const rect = canvas.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    };
-
-    const checkHit = pt => {
-      for (const d of dots) {
-        if (!activeSeq.includes(d.idx) && Math.hypot(d.x - pt.x, d.y - pt.y) < 24) return d.idx;
-      }
-      return null;
-    };
-
-    const connectDot = dotIdx => {
-      const added = lock.resolvePatternBridges(activeSeq, dotIdx);
-      if (added && added.length > 0) {
-        activeSeq.push(...added);
-        triggerHaptic(6);
-        playTick();
-        drawPatGrid();
-      }
-    };
-
-    const startDraw = e => {
-      isDrawing = true;
-      activeSeq = [];
-      recordedPattern = '';
-      try { canvas.setPointerCapture(e.pointerId); } catch {}
-      const pt = getCoord(e);
-      curPointer = pt;
-      const hit = checkHit(pt);
-      if (hit !== null) connectDot(hit);
-      drawPatGrid();
-    };
-
-    const moveDraw = e => {
-      if (!isDrawing) return;
-      const pt = getCoord(e);
-      curPointer = pt;
-      const hit = checkHit(pt);
-      if (hit !== null) connectDot(hit);
-      drawPatGrid();
-    };
-
-    const endDraw = e => {
-      if (!isDrawing) return;
-      isDrawing = false;
-      curPointer = null;
-      try { if (e?.pointerId) canvas.releasePointerCapture(e.pointerId); } catch {}
-      drawPatGrid();
-      if (activeSeq.length < 4) {
-        patStatus.textContent = '⚠️ Pattern needs at least 4 dots. Redraw:';
-        patStatus.style.color = 'var(--neg)';
-        recordedPattern = '';
-      } else {
-        recordedPattern = activeSeq.join('-');
-        patStatus.textContent = `✓ Pattern recorded (${activeSeq.length} dots connected)!`;
-        patStatus.style.color = 'var(--pos)';
-      }
-    };
-
-    canvas.addEventListener('pointerdown', startDraw);
-    canvas.addEventListener('pointermove', moveDraw);
-    canvas.addEventListener('pointerup', endDraw);
-    canvas.addEventListener('pointercancel', endDraw);
-
     clearBtn?.addEventListener('click', () => {
-      activeSeq = [];
+      patHandler?.clear();
       recordedPattern = '';
       patStatus.textContent = 'Draw pattern connecting at least 4 dots:';
       patStatus.style.color = '';
-      drawPatGrid();
     });
 
     form.onsubmit = async evt => {
       evt.preventDefault();
       const fd = new FormData(form);
 
-      if (isExisting) {
-        const cur = fd.get('curSecret');
-        if (!(await lock.verify(cur))) {
-          return toast('Current secret is incorrect! 🧐🔑');
-        }
-      }
-
       let secret = '';
       if (selectedType === 'pin') {
-        const pin = fd.get('pin')?.trim();
-        const conf = fd.get('pinConfirm')?.trim();
+        const pin = fd.get('hisaab_new_pin')?.trim();
+        const conf = fd.get('hisaab_new_pin_confirm')?.trim();
         if (!/^\d{4,8}$/.test(pin)) return toast('PIN must be 4 to 8 numeric digits 🔢');
         if (pin !== conf) return toast('PINs do not match! Please check again 🙈');
         secret = pin;
       } else if (selectedType === 'pattern') {
-        if (!recordedPattern || activeSeq.length < 4) {
+        if (!recordedPattern) {
           return toast('Please draw a pattern connecting at least 4 dots ⠇');
         }
         secret = recordedPattern;
       } else if (selectedType === 'password') {
-        const pass = fd.get('pass');
-        const conf = fd.get('passConfirm');
+        const pass = fd.get('hisaab_new_pass');
+        const conf = fd.get('hisaab_new_pass_confirm');
         if (!pass || pass.length < 4) return toast('Password must be at least 4 characters 🔑');
         if (pass !== conf) return toast('Passwords do not match! Please check again 🙈');
         secret = pass;

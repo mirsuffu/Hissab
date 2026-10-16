@@ -89,17 +89,22 @@ export async function openTxnSheet({ txn = null, fundId = null } = {}) {
           ⇄ 2-way Transfer (${t.type === 'in' ? 'Receiving leg' : 'Sending leg'}). Amount and date updates sync both funds automatically.
         </div>
         <input type="hidden" name="type" value="${t.type}">
+      ` : (t.potId ? `
+        <div class="ai-confirm-done" style="margin-bottom:6px;color:var(--accent);background:var(--accent-soft)">
+          🏺 Pot ${t.type === 'in' ? 'Deposit' : 'Withdrawal'} (${t.type === 'in' ? 'Funded from account into pot' : 'Returned from pot into account'}).
+        </div>
+        <input type="hidden" name="type" value="${t.type}">
       ` : `
       <div class="seg">
         <label><input type="radio" name="type" value="out" ${t.type === 'out' ? 'checked' : ''}><span>Spent</span></label>
         <label><input type="radio" name="type" value="in" ${t.type === 'in' ? 'checked' : ''}><span>Received</span></label>
         ${txn || L.funds.length < 2 ? '' : '<label><input type="radio" name="type" value="move"><span>Move</span></label>'}
-      </div>`}
+      </div>`)}
       <label class="field"><span>Amount</span><input name="amount" inputmode="decimal" required autocomplete="off" placeholder="0.00" value="${t.amount ? fromMinor(t.amount) : ''}"></label>
       <label class="field"><span>Fund</span><select name="fundId">${funds.map(f => opt(f, t.fundId, f.name + (f.holder ? ' · ' + f.holder : ''))).join('')}</select></label>
       <label class="field" id="toFund" hidden><span>Move to fund</span><select name="toFund">${funds.map(f => `<option value="${f.id}" ${f.id === otherFund ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
-      <label class="${txn ? (t.transferId ? 'field cat-party sr' : 'field cat-party') : 'field d-only cat-party'}"><span>Category</span><select name="categoryId" data-new="categories">${cats.map(c => opt(c, t.categoryId)).join('')}<option value="__new">+ New category…</option></select></label>
-      <label class="${txn ? (t.transferId ? 'field cat-party sr' : 'field cat-party') : 'field d-only cat-party'}"><span>Party (who from / to)</span><select name="partyId" data-new="parties"><option value="">None</option>${parties.map(p => opt(p, t.partyId)).join('')}<option value="__new">+ New party…</option></select></label>
+      <label class="${txn ? (t.transferId || t.potId ? 'field cat-party sr' : 'field cat-party') : 'field d-only cat-party'}"><span>Category</span><select name="categoryId" data-new="categories">${cats.map(c => opt(c, t.categoryId)).join('')}<option value="__new">+ New category…</option></select></label>
+      <label class="${txn ? (t.transferId || t.potId ? 'field cat-party sr' : 'field cat-party') : 'field d-only cat-party'}"><span>Party (who from / to)</span><select name="partyId" data-new="parties"><option value="">None</option>${parties.map(p => opt(p, t.partyId)).join('')}<option value="__new">+ New party…</option></select></label>
       <label class="${txn ? 'field' : 'field d-only'}"><span>Date</span><input type="date" name="date" value="${t.date}" required></label>
       <label class="field"><span>Comment</span><input name="note" autocomplete="off" placeholder="Notes or remarks" value="${esc(t.note)}"></label>
 
@@ -324,7 +329,12 @@ export async function openTxnSheet({ txn = null, fundId = null } = {}) {
 }
 
 export function txnRow(t, fund, L) {
-  const cat = t.transferId ? 'Transfer' : L.allCategories.find(c => c.id === t.categoryId)?.name || 'General';
+  const isFundInflow = t.potId ? t.type === 'out' : t.type === 'in';
+  const cat = t.transferId
+    ? 'Transfer'
+    : (t.potId
+      ? (t.type === 'in' ? 'Deposit to Pot 🏺' : 'Withdrawal from Pot 🏺')
+      : L.allCategories.find(c => c.id === t.categoryId)?.name || 'General');
   const party = L.allParties.find(p => p.id === t.partyId)?.name;
 
   // Format creation & edit timestamps
@@ -360,14 +370,19 @@ export function txnRow(t, fund, L) {
       </small>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-      <span class="amt ${t.type === 'in' ? 'pos' : ''}" style="font-weight:700">${t.type === 'in' ? '+' : '−'}${fmt(t.amount)}</span>
+      <span class="amt ${isFundInflow ? 'pos' : ''}" style="font-weight:700">${isFundInflow ? '+' : '−'}${fmt(t.amount)}</span>
       <button type="button" class="btn-micro" data-edit-txn="${t.id}" title="Edit entry" style="font-size:13px;padding:4px 8px;border-radius:calc(var(--radius)*.4);cursor:pointer">✏️</button>
     </div>
   </div>`;
 }
 
 export async function openTxnDetail({ txn: t, fund, L }) {
-  const cat = t.transferId ? 'Transfer' : L.allCategories.find(c => c.id === t.categoryId)?.name || 'General';
+  const isFundInflow = t.potId ? t.type === 'out' : t.type === 'in';
+  const cat = t.transferId
+    ? 'Transfer'
+    : (t.potId
+      ? (t.type === 'in' ? 'Deposit to Pot 🏺' : 'Withdrawal from Pot 🏺')
+      : L.allCategories.find(c => c.id === t.categoryId)?.name || 'General');
   const party = L.allParties.find(p => p.id === t.partyId)?.name;
   const createdDate = t.createdAt
     ? new Date(t.createdAt).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -382,8 +397,8 @@ export async function openTxnDetail({ txn: t, fund, L }) {
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <span class="chip" style="background:var(--accent-soft);color:var(--accent);font-weight:700">${esc(cat)}</span>
-          <h2 style="font-size:1.6rem;margin-top:6px" class="${t.type === 'in' ? 'pos' : 'neg'}">
-            ${t.type === 'in' ? '+' : '−'}${fmt(t.amount)}
+          <h2 style="font-size:1.6rem;margin-top:6px" class="${isFundInflow ? 'pos' : 'neg'}">
+            ${isFundInflow ? '+' : '−'}${fmt(t.amount)}
           </h2>
         </div>
         <button type="button" class="btn primary" id="detail-edit-btn" style="padding:6px 14px;font-size:.85rem">✏️ Edit Entry</button>
@@ -394,6 +409,11 @@ export async function openTxnDetail({ txn: t, fund, L }) {
           <span class="muted">Fund</span>
           <b>${esc(fund?.name || 'Unknown')}</b>
         </div>
+        ${t.potId ? `
+          <div style="display:flex;justify-content:space-between">
+            <span class="muted">Pot</span>
+            <b>🏺 ${esc(L.pots.find(p => p.id === t.potId)?.name || 'Savings Pot')}</b>
+          </div>` : ''}
         ${party ? `
           <div style="display:flex;justify-content:space-between">
             <span class="muted">Party</span>

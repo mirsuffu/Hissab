@@ -26,7 +26,7 @@
 .tile{display:grid;gap:8px;padding:var(--space);border-radius:var(--radius);
   transition:transform 0.24s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.2s ease}
 .tile:hover{transform:translateY(-2px)}
-.tile:active{transform:scale(0.985);box-shadow:inset 5px 5px 10px var(--sh-lo),inset -5px -5px 10px var(--sh-hi)}
+.tile:active{box-shadow:inset 5px 5px 10px var(--sh-lo),inset -5px -5px 10px var(--sh-hi)}
 .tile b{font-size:1.25rem;letter-spacing:-.01em}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
 .meter{height:10px;border-radius:99px;overflow:hidden;position:relative}
@@ -42,9 +42,11 @@
 .row-item{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;width:100%;
   padding:12px 16px;border:0;border-radius:calc(var(--radius)*.75);background:var(--bg);cursor:pointer;
   box-shadow:6px 6px 14px var(--sh-lo),-6px -6px 14px var(--sh-hi);
-  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.15), box-shadow 0.18s ease}
+  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.15), box-shadow 0.18s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 54px}
 .row-item:hover{transform:translateX(3px)}
-.row-item:active{transform:scale(0.985);box-shadow:inset 3px 3px 7px var(--sh-lo),inset -3px -3px 7px var(--sh-hi)}
+.row-item:active{box-shadow:inset 3px 3px 7px var(--sh-lo),inset -3px -3px 7px var(--sh-hi)}
 .row-item small{display:block;color:var(--ink-2)}
 .amt{font-weight:650;white-space:nowrap}
 .day{font-size:.85rem;color:var(--ink-2);margin:8px 0 -2px}
@@ -55,7 +57,7 @@
   box-shadow:6px 6px 14px var(--sh-lo),-6px -6px 14px var(--sh-hi);
   transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.15s ease}
 .btn:hover{transform:translateY(-1px)}
-.btn:active{transform:scale(0.975);box-shadow:inset 4px 4px 9px var(--sh-lo),inset -4px -4px 9px var(--sh-hi)}
+.btn:active{box-shadow:inset 4px 4px 9px var(--sh-lo),inset -4px -4px 9px var(--sh-hi);opacity:.92}
 .btn.primary{background:var(--accent);color:#fff}
 .btn.danger{color:var(--neg)}
 .row{display:flex;gap:12px;flex-wrap:wrap}
@@ -75,27 +77,29 @@
 .seg input:focus-visible+span{outline:2px solid var(--accent)}
 
 /* ---- nav ---- */
-.nav a,.nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.72rem;color:var(--ink-2);
-  background:none;border:0;padding:8px 8px;border-radius:calc(var(--radius)*.6);cursor:pointer;
-  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), color 0.18s ease, box-shadow 0.2s ease;will-change:transform}
+.nav a,.nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.68rem;color:var(--ink-2);
+  background:none;border:0;padding:6px 2px;border-radius:calc(var(--radius)*.55);cursor:pointer;flex:1;min-width:0;text-align:center;
+  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), color 0.18s ease, box-shadow 0.2s ease}
+.nav a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .nav a.on{color:var(--accent);box-shadow:inset 3px 3px 7px var(--sh-lo),inset -3px -3px 7px var(--sh-hi)}
 .nav a:hover:not(.on){color:var(--ink);transform:translateY(-1px)}
-.nav a:active,.nav button:active{transform:scale(0.94)}
-.nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav a:active,.nav button:active{opacity:.85}
+.nav svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
 .nav-sep{height:1px;background:var(--glass-line);margin:6px 0;opacity:.7}
 .nav-section{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);padding:6px 12px 2px}
 
 /* Mobile Nav Center Add Button */
-.nav-add-btn{width:46px;height:46px;border-radius:50%;background:var(--accent);color:#fff;border:0;
-  display:grid;place-items:center;margin-top:-14px;box-shadow:0 6px 14px hsl(var(--accent-h) 65% 40% / .4);
-  cursor:pointer;flex-shrink:0;transition:transform 0.24s cubic-bezier(0.2, 0.85, 0.35, 1.3), box-shadow 0.24s ease;will-change:transform}
+.nav-add-btn{width:44px;height:44px;flex:0 0 44px!important;border-radius:50%;background:var(--accent);color:#fff;border:0;
+  display:grid;place-items:center;margin-top:-14px;box-shadow:0 6px 16px hsl(var(--accent-h) 65% 40% / .45);
+  cursor:pointer;transition:transform 0.24s cubic-bezier(0.2, 0.85, 0.35, 1.3), box-shadow 0.24s ease}
 .nav-add-btn:hover{transform:scale(1.08) translateY(-2px);box-shadow:0 8px 20px hsl(var(--accent-h) 65% 40% / .55)}
-.nav-add-btn:active{transform:scale(.92)}
-.nav-add-btn svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.nav-add-btn:active{opacity:.9}
+.nav-add-btn svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 
 @media(min-width:900px){
   .nav-add-btn{display:none!important}
-  .nav a,.nav button{flex-direction:row;gap:12px;font-size:.92rem;font-weight:600;padding:10px 14px;border-radius:calc(var(--radius)*.65);width:100%}
+  .nav a,.nav button{flex-direction:row;gap:12px;font-size:.92rem;font-weight:600;padding:10px 14px;border-radius:calc(var(--radius)*.65);width:100%;text-align:left;flex:initial}
+  .nav a span{white-space:normal;overflow:visible;text-overflow:clip}
   .nav a.on{background:var(--bg)}
 }
 
@@ -179,7 +183,7 @@ body[data-route="chat"] .fab{display:none!important}
 
 .ai-actions{display:flex;align-items:center;gap:5px}
 .ai-action-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 9px;border-radius:calc(var(--radius)*.5);border:0;background:var(--bg);color:var(--ink-2);cursor:pointer;font-size:.78rem;font-weight:650;box-shadow:2px 2px 5px var(--sh-lo),-2px -2px 5px var(--sh-hi);
-  transition:transform 0.18s cubic-bezier(0.2, 0.85, 0.35, 1.2), color 0.15s, box-shadow 0.15s;will-change:transform}
+  transition:transform 0.18s cubic-bezier(0.2, 0.85, 0.35, 1.2), color 0.15s, box-shadow 0.15s}
 .ai-action-btn:hover{color:var(--accent);transform:translateY(-1px)}
 .ai-action-btn:active{box-shadow:inset 1px 1px 3px var(--sh-lo);transform:scale(0.96)}
 .ai-action-btn.icon-only{padding:5px 6px}
@@ -242,19 +246,110 @@ details.audit ul{list-style:none;display:grid;gap:4px;margin-top:10px;font-size:
 /* ---- pills (checkbox chips) ---- */
 .pill{position:relative}.pill input{position:absolute;opacity:0;pointer-events:none}
 .pill span{display:block;padding:8px 14px;border-radius:99px;cursor:pointer;font-weight:600;color:var(--ink-2);background:var(--bg);box-shadow:4px 4px 9px var(--sh-lo),-4px -4px 9px var(--sh-hi);
-  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.2s ease, color 0.18s ease;will-change:transform}
-.pill span:active{transform:scale(0.96)}
+  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.2s ease, color 0.18s ease}
+.pill span:active{box-shadow:inset 2px 2px 4px var(--sh-lo)}
 .pill input:checked+span{color:var(--accent);box-shadow:inset 3px 3px 7px var(--sh-lo),inset -3px -3px 7px var(--sh-hi);transform:scale(1.02)}
 .pill input:focus-visible+span{outline:2px solid var(--accent)}
 
+/* ---- Home Dashboard Sticky Overview & Mobile 2-Column Split ---- */
+.dashboard-overview-sticky {
+  position: sticky;
+  top: 50px;
+  z-index: 8;
+  background: var(--bg);
+  padding: 6px 0 10px;
+  border-bottom: 1px solid var(--glass-line);
+}
+@media(max-width:899px){
+  .dashboard-overview-sticky {
+    top: 50px;
+    margin: -12px -12px 10px -12px;
+    padding: 8px 12px 10px 12px;
+    -webkit-backdrop-filter: blur(var(--blur));
+    backdrop-filter: blur(var(--blur));
+  }
+  .dashboard-columns-mobile {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 10px;
+    align-items: start;
+    margin-top: 10px;
+  }
+  .dashboard-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .dashboard-col-title {
+    text-align: center;
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .col-cards-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .col-cards-stack .tile {
+    padding: 10px;
+    width: 100%;
+    border-radius: calc(var(--radius) * .7);
+  }
+  .col-cards-stack .tile span {
+    font-size: .8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .col-cards-stack .tile b {
+    font-size: 1.05rem;
+    font-weight: 750;
+  }
+  .dashboard-divider-gradient {
+    width: 1px;
+    min-height: 220px;
+    background: linear-gradient(to bottom, transparent 0%, var(--glass-line) 15%, var(--glass-line) 85%, transparent 100%);
+    align-self: stretch;
+  }
+  .dashboard-sections-desktop {
+    display: none!important;
+  }
+}
+@media(min-width:900px){
+  .dashboard-columns-mobile {
+    display: none!important;
+  }
+  .dashboard-sections-desktop {
+    display: block;
+  }
+}
+
+/* ---- Pots Full-Width Stack ---- */
+.pots-stack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pot-card-full {
+  transition: transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.2s ease;
+}
+.pot-card-full:hover {
+  transform: translateY(-2px);
+}
+.pot-card-full:active {
+  opacity: .92;
+}
+
 /* ---- chat, badge, lock ---- */
 .nav a{position:relative}
-.nav{gap:2px}.nav a,.nav button{padding:8px 6px}
 .badge{position:absolute;top:2px;right:2px;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--neg);color:#fff;font:700 .7rem/18px var(--font);text-align:center;font-style:normal}
 .row-item .badge{position:static;display:inline-block}
 /* ---- Dedicated Chat View Container ---- */
 .chat-thread-card{display:flex;flex-direction:column;height:calc(100dvh - 130px);min-height:480px;border-radius:var(--radius);overflow:hidden;position:relative;background:var(--bg);box-shadow:inset 1px 1px 4px var(--sh-lo)}
-@media(max-width:899px){.chat-thread-card{height:calc(100dvh - 84px);border-radius:0;margin:-12px -12px calc(-96px - env(safe-area-inset-bottom)) -12px}}
+@media(max-width:899px){.chat-thread-card{height:calc(100dvh - 54px - var(--bottom-nav-h, 68px) - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:360px;border-radius:var(--radius);margin:0}}
 .chat-thread-header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--glass-line);background:var(--bg);flex-shrink:0;z-index:10}
 .chat-thread-user{display:flex;align-items:center;gap:12px}
 .chat-back-btn{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--bg);color:var(--ink);font-size:1.4rem;font-weight:700;box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi);text-decoration:none;line-height:1;transition:transform .15s}
@@ -277,14 +372,15 @@ details.audit ul{list-style:none;display:grid;gap:4px;margin-top:10px;font-size:
 .msg-ticks.sent{color:currentColor;opacity:.65}
 .msg-ticks.delivered{color:currentColor;opacity:.85}
 .msg-ticks.read{color:#38bdf8;opacity:1} /* WhatsApp/Telegram vibrant cyan-blue */
+.msg.me .msg-ticks.read{color:#e0f2fe;font-weight:800;text-shadow:0 0 2px rgba(0,0,0,.4)}
 
 /* File Attachment Card (Title + Actions Only, No content dump) */
 .msg-doc-card{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:rgba(0,0,0,.15);border-radius:calc(var(--radius)*.6);border:1px solid rgba(255,255,255,.18);max-width:100%}
 .msg.them .msg-doc-card{background:rgba(255,255,255,.45);border-color:rgba(0,0,0,.08)}
 .msg-doc-left{display:flex;align-items:center;gap:10px;overflow:hidden;min-width:0;flex:1}
 .msg-doc-icon{font-size:1.35rem;flex-shrink:0}
-.msg-doc-details{display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.msg-doc-name{font-size:.85rem;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-doc-details{display:flex;flex-direction:column;overflow:hidden;min-width:0;flex:1}
+.msg-doc-name{font-size:.85rem;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .msg-doc-size{font-size:.72rem;opacity:.75}
 .msg-doc-btns{display:flex;gap:5px;flex-shrink:0}
 
@@ -298,9 +394,9 @@ details.audit ul{list-style:none;display:grid;gap:4px;margin-top:10px;font-size:
 #lock .pin{text-align:center;font-size:1.6rem;letter-spacing:.4em;border:0;outline:0;padding:12px;border-radius:calc(var(--radius)*.6);background:var(--bg);box-shadow:inset 4px 4px 9px var(--sh-lo),inset -4px -4px 9px var(--sh-hi)}
 
 .btn-micro{font-size:.72rem;padding:3px 8px;border-radius:99px;border:0;background:var(--bg);color:var(--ink);cursor:pointer;font-weight:600;box-shadow:2px 2px 5px var(--sh-lo),-2px -2px 5px var(--sh-hi);
-  transition:transform 0.18s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow .12s;will-change:transform}
+  transition:transform 0.18s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow .12s}
 .btn-micro:hover{transform:translateY(-1px)}
-.btn-micro:active{box-shadow:inset 1px 1px 3px var(--sh-lo);transform:scale(0.96)}
+.btn-micro:active{box-shadow:inset 1px 1px 3px var(--sh-lo)}
 .txn-pill-row .btn-micro{transition:transform .15s ease, background .15s ease;z-index:2}
 .txn-pill-row .btn-micro:hover{background:var(--accent-soft);transform:scale(1.15)}
 
@@ -462,8 +558,8 @@ details.settings-acc .acc-body{
   font-size:1.35rem;font-weight:700;color:var(--ink);cursor:pointer;
   box-shadow:5px 5px 12px var(--sh-lo), -5px -5px 12px var(--sh-hi);
   display:grid;place-items:center;user-select:none;touch-action:manipulation;
-  transition:transform 0.15s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.15s;will-change:transform}
-.numpad-key:active{transform:scale(0.92);box-shadow:inset 3px 3px 7px var(--sh-lo), inset -3px -3px 7px var(--sh-hi)}
+  transition:transform 0.15s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.15s}
+.numpad-key:active{box-shadow:inset 3px 3px 7px var(--sh-lo), inset -3px -3px 7px var(--sh-hi)}
 .numpad-key svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 .lock-footer{display:flex;justify-content:space-between;align-items:center;padding:0 6px;font-size:.82rem}

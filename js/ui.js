@@ -35,7 +35,9 @@ export function openSheet(html, onMount) {
   r.innerHTML = `<div class="scrim" data-close></div><section class="sheet glass" role="dialog" aria-modal="true">${html}</section>`;
   requestAnimationFrame(() => r.classList.add('open'));
   r.onclick = e => { if (e.target.closest('[data-close]')) closeSheet(); };
-  try { history.pushState({ hisaabSheet: true }, ''); } catch {}
+  if (!history.state?.hisaabSheet) {
+    try { history.pushState({ hisaabSheet: true }, ''); } catch {}
+  }
   onMount?.(r.querySelector('.sheet'));
 }
 
@@ -76,6 +78,7 @@ function getDialogRoot() {
 export function confirmModal({ title = 'Confirm', message = 'Are you sure?', confirmText = 'Confirm', cancelText = 'Cancel', danger = false } = {}) {
   return new Promise(resolve => {
     let resolved = false;
+    const root = getDialogRoot();
     let onKey = null;
     const finish = val => {
       if (resolved) return;

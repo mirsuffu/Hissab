@@ -15,7 +15,12 @@ export function render(root, arg) {
   const L = store.live(), m = buildModel(L, O), presets = load(PKEY, []);
   const list = (items, all) => [['', all], ...items.map(i => [i.id, i.name + (i.deleted ? ' (deleted)' : '')])];
   root.innerHTML = `
-    <header class="top"><div><a class="muted" href="javascript:history.length>1?history.back():location.hash='#/home'" style="cursor:pointer">‹ Back</a><h1>Statements</h1></div></header>
+    <header class="top">
+      <div>
+        ${arg ? `<a class="muted" href="#/funds/${esc(arg)}" style="cursor:pointer;font-size:.82rem;display:inline-block;margin-bottom:4px">‹ Back to fund</a>` : ''}
+        <h1>Statements</h1>
+      </div>
+    </header>
     <section class="card glass form">
       ${inp('title', 'Title', 'text', O.title)}
       ${sel(['period', 'Period'], [['day', 'Daily'], ['month', 'Monthly'], ['year', 'Yearly'], ['range', 'Custom range'], ['all', 'All time']], O.period)}

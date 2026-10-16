@@ -93,10 +93,11 @@ function renderNav() {
     }
     nav.innerHTML = html;
   } else {
-    // Mobile bottom navigation: 5 slots [Home] [Funds] [Pots] [History] [Chat]
+    // Mobile bottom navigation: 7 slots [Home] [Funds] [Pots] [ ＋ Add ] [Statements] [History] [Chat]
     const homeOn = name === 'home' ? 'on' : '';
     const fundsOn = name === 'funds' ? 'on' : '';
     const potsOn = name === 'pots' ? 'on' : '';
+    const statementsOn = name === 'statements' ? 'on' : '';
     const historyOn = name === 'history' ? 'on' : '';
     const chatOn = name === 'chat' ? 'on' : '';
 
@@ -104,6 +105,10 @@ function renderNav() {
       <a href="#/home" class="${homeOn}">${icon('home')}<span>Home</span></a>
       <a href="#/funds" class="${fundsOn}">${icon('funds')}<span>Funds</span></a>
       <a href="#/pots" class="${potsOn}">${icon('pot')}<span>Pots</span></a>
+      <button type="button" class="nav-add-btn" id="mobile-add-btn" data-add aria-label="Add entry" title="Add entry">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <a href="#/statements" class="${statementsOn}">${icon('statements')}<span>Statements</span></a>
       <a href="#/history" class="${historyOn}">${icon('history')}<span>History</span></a>
       <a href="#/chat" class="${chatOn}">${icon('chat')}<span>Chat</span>${badge()}</a>
     `;
@@ -114,23 +119,16 @@ function updateDp() {
   const s = cloud.state();
   const dp = $('#user-dp');
   if (!dp) return;
-  const p = store.live().profile;
-  const avatarSrc = p?.dp || s.user?.photoURL;
-  if (avatarSrc) {
-    dp.innerHTML = `<img src="${esc(avatarSrc)}" alt="Avatar" referrerpolicy="no-referrer">`;
-  } else {
-    const initial = (p?.name?.[0] || s.profile?.name?.[0] || s.user?.displayName?.[0] || 'H').toUpperCase();
-    dp.innerHTML = `<span class="dp-initials">${esc(initial)}</span>`;
-  }
 
-  // Update online/offline ring status
+  // #user-dp is the top-left branding link to Account (#/account)
+  // Preserve the Hisaab brand logo and text while updating status indications
   if (!navigator.onLine) {
     dp.classList.add('offline');
   } else {
     dp.classList.remove('offline');
   }
 
-  dp.title = s.user ? `Account (${s.user.displayName || s.user.email || 'Online'})` : 'Account (Local / Guest)';
+  dp.title = s.user ? `Account (${s.user.displayName || s.user.email || 'Online'})` : 'Account & Identity (Local / Guest)';
 }
 
 function updateSyncChip() {
@@ -206,16 +204,47 @@ function renderCurrentView() {
   renderNav();
   updateDp();
   updateAiFab();
-  routes[name].mod.render($('#view'), arg);
+  const route = routes[name];
+  if (!route || !route.mod) {
+    location.hash = '#/home';
+    return;
+  }
+  try {
+    route.mod.render($('#view'), arg);
+  } catch (err) {
+    logger.error('View render failed', { route: name, error: String(err) });
+    const view = $('#view');
+    if (view) {
+      view.innerHTML = `
+        <div class="empty glass" style="margin:40px auto;max-width:400px;text-align:center">
+          <h3>Something went wrong</h3>
+          <p class="muted" style="font-size:.85rem">Failed to load this page. Tap below to return home.</p>
+          <button class="btn primary" onclick="location.hash='#/home';location.reload()">Return Home</button>
+        </div>
+      `;
+    }
+  }
 }
 
+let currentTransition = null;
+let lastNavTime = 0;
 function draw(isNavigation = false) {
-  if (isNavigation && document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const now = performance.now();
+  const isRapid = (now - lastNavTime) < 260;
+  lastNavTime = now;
+
+  if (currentTransition?.skipTransition) {
+    try { currentTransition.skipTransition(); } catch {}
+    currentTransition = null;
+  }
+
+  if (isNavigation && !isRapid && document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     try {
-      const vt = document.startViewTransition(() => renderCurrentView());
-      vt.ready?.catch?.(() => {});
-      vt.finished?.catch?.(() => {});
+      currentTransition = document.startViewTransition(() => renderCurrentView());
+      currentTransition.ready?.catch?.(() => {});
+      currentTransition.finished?.catch?.(() => {})?.finally?.(() => { currentTransition = null; });
     } catch {
+      currentTransition = null;
       renderCurrentView();
     }
   } else {
@@ -328,6 +357,29 @@ window.addEventListener('keydown', e => {
   }
 });
 addEventListener('hashchange', () => draw(true));
+
+// Reliable navigation: handle same-hash clicks and auto-close open sheets without history collisions
+function handleNavClick(e) {
+  const a = e.target.closest('a[href]');
+  if (!a) return;
+  const href = a.getAttribute('href') || '';
+  if (!href.startsWith('#/')) return;
+  e.preventDefault();
+
+  const sheetRoot = $('#sheet-root');
+  if (sheetRoot?.classList.contains('open')) {
+    closeSheet(true);
+  }
+
+  if (location.hash === href) {
+    draw(true);
+  } else {
+    location.hash = href;
+  }
+}
+
+$('#nav')?.addEventListener('click', handleNavClick);
+$('.app-topbar')?.addEventListener('click', handleNavClick);
 let lastWidth = window.innerWidth;
 addEventListener('resize', () => {
   const newWidth = window.innerWidth;

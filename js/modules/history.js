@@ -59,33 +59,33 @@ export function render(root) {
   const days = [...new Set(rows.map(r => r.date))];
 
   root.innerHTML = `
-    <div class="history-sticky-header" style="position:sticky;top:0;z-index:10;background:color-mix(in srgb, var(--bg) 85%, transparent);padding:4px 0 10px;border-bottom:1px solid var(--glass-line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)">
-      <header class="top" style="margin-bottom:8px"><h1>History</h1></header>
-      <div class="row" style="flex-wrap:wrap;gap:8px;align-items:center">
-        <div style="display:flex;align-items:center;gap:4px">
-          <button class="btn" data-step="-1" aria-label="Previous">‹</button>
-          <button class="btn inset" data-pick-date style="font-weight:650">${rangeLabel} ▾</button>
-          <button class="btn" data-step="1" aria-label="Next">›</button>
+    <div class="history-sticky-header" style="position:sticky;top:50px;z-index:10;background:color-mix(in srgb, var(--bg) 88%, transparent);padding:4px 0 10px;border-bottom:1px solid var(--glass-line);-webkit-backdrop-filter:blur(var(--blur));backdrop-filter:blur(var(--blur))">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h1 style="margin:0;font-size:1.4rem;font-weight:750;letter-spacing:-.02em">History</h1>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="date-stepper-segmented" style="display:inline-flex;align-items:center;height:36px;background:var(--bg);border-radius:99px;box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi);padding:2px">
+            <button class="stepper-arrow-btn" data-step="-1" aria-label="Previous" style="width:32px;height:32px;border:0;background:none;color:var(--ink-2);cursor:pointer;font-size:1.1rem;display:grid;place-items:center;border-radius:50%">‹</button>
+            <button class="stepper-label-btn" data-pick-date style="border:0;background:none;padding:0 8px;font-size:.84rem;font-weight:650;color:var(--ink);cursor:pointer;white-space:nowrap">${rangeLabel} ▾</button>
+            <button class="stepper-arrow-btn" data-step="1" aria-label="Next" style="width:32px;height:32px;border:0;background:none;color:var(--ink-2);cursor:pointer;font-size:1.1rem;display:grid;place-items:center;border-radius:50%">›</button>
+          </div>
+          <label class="field" style="margin:0;min-width:82px;height:36px">
+            <select data-mode aria-label="Granularity view" style="height:36px;padding:0 24px 0 10px;font-size:.82rem;font-weight:600;border-radius:99px;background:var(--bg);box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi);border:1px solid var(--glass-line)">
+              <option value="date" ${mode === 'date' ? 'selected' : ''}>Day</option>
+              <option value="month" ${mode === 'month' ? 'selected' : ''}>Month</option>
+              <option value="year" ${mode === 'year' ? 'selected' : ''}>Year</option>
+            </select>
+          </label>
+          <label class="field d-only" style="margin:0;height:36px">
+            <select data-fund aria-label="Filter by fund" style="height:36px;padding:0 24px 0 10px;font-size:.82rem;font-weight:600;border-radius:99px;background:var(--bg);box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi);border:1px solid var(--glass-line)">
+              <option value="all">All funds</option>
+              ${allFunds.map(f => `<option value="${f.id}" ${f.id === fundFilter ? 'selected' : ''}>${esc(f.name)}${f.deleted ? ' (deleted)' : ''}</option>`).join('')}
+            </select>
+          </label>
         </div>
-
-        <label class="field" style="margin:0;min-width:96px">
-          <select data-mode aria-label="Granularity view">
-            <option value="date" ${mode === 'date' ? 'selected' : ''}>Day</option>
-            <option value="month" ${mode === 'month' ? 'selected' : ''}>Month</option>
-            <option value="year" ${mode === 'year' ? 'selected' : ''}>Year</option>
-          </select>
-        </label>
-
-        <label class="field d-only" style="margin:0">
-          <select data-fund aria-label="Filter by fund">
-            <option value="all">All funds</option>
-            ${allFunds.map(f => `<option value="${f.id}" ${f.id === fundFilter ? 'selected' : ''}>${esc(f.name)}${f.deleted ? ' (deleted)' : ''}</option>`).join('')}
-          </select>
-        </label>
       </div>
 
       <div style="margin-top:10px">
-        <input type="search" id="history-search" placeholder="🔍 Search notes, categories, parties, amount…" value="${esc(searchQuery)}" autocomplete="off" style="width:100%;border:0;outline:0;padding:10px 14px;border-radius:calc(var(--radius)*.6);background:var(--bg);box-shadow:inset 4px 4px 9px var(--sh-lo),inset -4px -4px 9px var(--sh-hi);font-size:.88rem">
+        <input type="search" id="history-search" placeholder="🔍 Search notes, categories, parties, amount…" value="${esc(searchQuery)}" autocomplete="off" style="width:100%;border:0;outline:0;padding:9px 14px;border-radius:calc(var(--radius)*.6);background:var(--bg);box-shadow:inset 3px 3px 7px var(--sh-lo),inset -3px -3px 7px var(--sh-hi);font-size:.86rem">
       </div>
     </div>
 
@@ -98,40 +98,44 @@ export function render(root) {
       `).join('') || `<div class="empty glass">${qTrim ? `No entries matching "${esc(searchQuery)}" for ${esc(rangeLabel)}` : `No entries for ${esc(rangeLabel)}! Your wallet was on its absolute best behavior 😇🪙`}</div>`}
     </div>`;
 
+  let searchDebounce = null;
   const searchInput = root.querySelector('#history-search');
   if (searchInput) {
     searchInput.oninput = e => {
       searchQuery = e.target.value;
-      const q = searchQuery.toLowerCase().trim();
-      const sections = root.querySelectorAll('section.stack[data-day]');
-      let visibleCount = 0;
-      sections.forEach(sec => {
-        const items = sec.querySelectorAll('[data-view-txn]');
-        let dayVisible = 0;
-        items.forEach(item => {
-          const tid = item.dataset.viewTxn;
-          const t = allPeriodRows.find(x => x.id === tid);
-          const match = matchesSearch(t, q);
-          item.closest('.row-item, [data-view-txn]').style.display = match ? '' : 'none';
-          if (match) dayVisible++;
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        const q = searchQuery.toLowerCase().trim();
+        const sections = root.querySelectorAll('section.stack[data-day]');
+        let visibleCount = 0;
+        sections.forEach(sec => {
+          const items = sec.querySelectorAll('[data-view-txn]');
+          let dayVisible = 0;
+          items.forEach(item => {
+            const tid = item.dataset.viewTxn;
+            const t = allPeriodRows.find(x => x.id === tid);
+            const match = matchesSearch(t, q);
+            item.closest('.row-item, [data-view-txn]').style.display = match ? '' : 'none';
+            if (match) dayVisible++;
+          });
+          sec.style.display = dayVisible ? '' : 'none';
+          visibleCount += dayVisible;
         });
-        sec.style.display = dayVisible ? '' : 'none';
-        visibleCount += dayVisible;
-      });
-      let emptyMsg = root.querySelector('#search-empty-msg');
-      if (visibleCount === 0 && q) {
-        if (!emptyMsg) {
-          emptyMsg = document.createElement('div');
-          emptyMsg.id = 'search-empty-msg';
-          emptyMsg.className = 'empty glass';
-          emptyMsg.style.marginTop = '12px';
-          root.querySelector('#history-list-wrap').after(emptyMsg);
+        let emptyMsg = root.querySelector('#search-empty-msg');
+        if (visibleCount === 0 && q) {
+          if (!emptyMsg) {
+            emptyMsg = document.createElement('div');
+            emptyMsg.id = 'search-empty-msg';
+            emptyMsg.className = 'empty glass';
+            emptyMsg.style.marginTop = '12px';
+            root.querySelector('#history-list-wrap').after(emptyMsg);
+          }
+          emptyMsg.textContent = `No transactions matching "${searchQuery}" found in ${rangeLabel}.`;
+          emptyMsg.hidden = false;
+        } else if (emptyMsg) {
+          emptyMsg.hidden = true;
         }
-        emptyMsg.textContent = `No transactions matching "${searchQuery}" found in ${rangeLabel}.`;
-        emptyMsg.hidden = false;
-      } else if (emptyMsg) {
-        emptyMsg.hidden = true;
-      }
+      }, 150);
     };
   }
 

@@ -1,37 +1,42 @@
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
-html{-webkit-text-size-adjust:100%;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:color-mix(in srgb, var(--ink-2) 35%, transparent) transparent;overscroll-behavior-y:none}
+html{-webkit-text-size-adjust:100%;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:color-mix(in srgb, var(--ink-2) 35%, transparent) transparent;overscroll-behavior-y:none;touch-action:manipulation}
 /* App-themed liquid custom scrollbars */
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--ink-2) 30%, transparent);border-radius:99px;border:2px solid transparent;background-clip:padding-box}
 ::-webkit-scrollbar-thumb:hover{background:var(--accent);background-clip:padding-box}
 body{font:400 var(--base-font,15px)/1.5 var(--font);color:var(--ink);background:var(--bg);min-height:100dvh;
-  padding-top:env(safe-area-inset-top);-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none;overflow-x:hidden}
+  padding-top:env(safe-area-inset-top);-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none;overflow-x:hidden;touch-action:manipulation}
 h1{font-size:1.65rem;font-weight:700;letter-spacing:-.02em}
 h2{font-size:1.05rem;font-weight:650;letter-spacing:-.01em}
-button,input,select{font:inherit;color:inherit}
-a{color:inherit;text-decoration:none}
+button,input,select{font:inherit;color:inherit;touch-action:manipulation}
+a{color:inherit;text-decoration:none;touch-action:manipulation}
 .muted{color:var(--ink-2)} .pos{color:var(--pos)} .neg{color:var(--neg)}
 
 .backdrop{position:fixed;inset:0;overflow:hidden;z-index:-1}
-.backdrop i{position:absolute;border-radius:50%;filter:blur(80px);opacity:.6}
+.backdrop i{position:absolute;border-radius:50%;filter:blur(40px);opacity:.6}
 .backdrop i:nth-child(1){width:46vmax;height:46vmax;background:var(--blob-a);top:-16vmax;left:-12vmax}
 .backdrop i:nth-child(2){width:38vmax;height:38vmax;background:var(--blob-b);right:-12vmax;top:30vh}
 .backdrop i:nth-child(3){width:34vmax;height:34vmax;background:var(--blob-c);left:10vw;bottom:-16vmax}
 
-/* ---- App Top Bar (Gear left, Title, DP right) ---- */
+/* ---- App Top Bar (Logo + Name left, Sync chip + Settings right) ---- */
 .app-topbar{position:sticky;top:0;z-index:15;display:flex;justify-content:space-between;align-items:center;
   padding:10px 24px;border-bottom:1px solid var(--glass-line);max-width:100%}
 .topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;cursor:pointer;transition:transform .18s ease}
+.topbar-brand:hover{transform:scale(1.02)}
+.topbar-brand.offline .brand-logo{filter:grayscale(1);opacity:.7}
+.topbar-brand.syncing .brand-logo{animation:sync-ring-blink 0.5s ease-in-out 3}
+.brand-logo{width:28px;height:28px;border-radius:7px;object-fit:cover;box-shadow:0 2px 6px rgba(0,0,0,.25);flex-shrink:0}
 .brand-text{font-size:1.3rem;font-weight:750;letter-spacing:-.03em;color:var(--ink)}
-.icon-btn{display:grid;place-items:center;width:40px;height:40px;border-radius:calc(var(--radius)*.55);
+.icon-btn{display:grid;place-items:center;width:36px;height:36px;border-radius:calc(var(--radius)*.55);
   background:var(--bg);color:var(--ink-2);border:0;cursor:pointer;
-  box-shadow:4px 4px 10px var(--sh-lo),-4px -4px 10px var(--sh-hi);
-  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), color 0.15s, box-shadow 0.15s;will-change:transform}
+  box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi);
+  transition:transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), color 0.15s, box-shadow 0.15s}
 .icon-btn:hover{color:var(--accent);transform:scale(1.05)}
-.icon-btn:active{transform:scale(0.94);box-shadow:inset 2px 2px 5px var(--sh-lo),inset -2px -2px 5px var(--sh-hi)}
-.icon-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.icon-btn:active{box-shadow:inset 2px 2px 5px var(--sh-lo),inset -2px -2px 5px var(--sh-hi);opacity:.9}
+.icon-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---- User DP / Avatar button with Online/Offline/Sync Ring ---- */
 @keyframes sync-ring-blink {
@@ -39,7 +44,7 @@ a{color:inherit;text-decoration:none}
   50% { box-shadow: 0 0 0 4px var(--accent); opacity: 0.35; }
 }
 .topbar-right{display:flex;align-items:center;gap:10px}
-.sync-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;
+.sync-chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:99px;
   background:var(--bg);border:1px solid var(--glass-line);cursor:pointer;font-size:.78rem;font-weight:650;
   box-shadow:3px 3px 8px var(--sh-lo),-3px -3px 8px var(--sh-hi);color:var(--ink);
   transition:transform .18s cubic-bezier(0.2,0.85,0.35,1.2), box-shadow .15s}
@@ -52,30 +57,21 @@ a{color:inherit;text-decoration:none}
 .sync-chip.local .sync-chip-dot{background:var(--ink-2)}
 @keyframes sync-dot-pulse{0%{opacity:.3;transform:scale(.85)}100%{opacity:1;transform:scale(1.2)}}
 
-.user-dp-btn{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;
-  background:var(--bg);border:2.5px solid var(--pos);cursor:pointer;overflow:hidden;
-  box-shadow:4px 4px 10px var(--sh-lo),-4px -4px 10px var(--sh-hi);
-  transition:border-color .3s, transform 0.2s cubic-bezier(0.2, 0.85, 0.35, 1.2), box-shadow 0.2s;will-change:transform}
-.user-dp-btn.offline{border-color:var(--neg)}
-.user-dp-btn.syncing{animation:sync-ring-blink 0.5s ease-in-out 3}
-.user-dp-btn:hover{transform:scale(1.06)}
-.user-dp-btn:active{transform:scale(0.95)}
-.user-dp-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.dp-initials{font-weight:750;font-size:1.05rem;color:var(--accent)}
+:root{--bottom-nav-h:68px}
 
 /* ---- Main Shell Layout ---- */
 .shell{max-width:1380px;margin:auto;padding:var(--space) var(--space) calc(110px + env(safe-area-inset-bottom))}
 main{display:grid;gap:calc(var(--space)*1.4);align-content:start;min-width:0}
 
 /* Mobile Nav Bar */
-.nav{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:10;
-  display:flex;justify-content:space-around;align-items:center;padding:8px;border-radius:calc(var(--radius)*1.2)}
+.nav{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:10;
+  display:flex;justify-content:space-between;align-items:center;padding:6px 4px;border-radius:calc(var(--radius)*1.1)}
 
 /* Mobile Responsive Optimization (< 900px) */
 @media(max-width:899px){
   body::after{
     content:'';position:fixed;left:0;right:0;bottom:0;
-    height:calc(88px + env(safe-area-inset-bottom));
+    height:calc(82px + env(safe-area-inset-bottom));
     background:linear-gradient(to top, var(--bg) 75%, transparent 100%);
     pointer-events:none;z-index:9;
   }
@@ -83,12 +79,11 @@ main{display:grid;gap:calc(var(--space)*1.4);align-content:start;min-width:0}
   h2{font-size:.98rem;letter-spacing:-.01em}
   .app-topbar{padding:8px 14px}
   .topbar-left{gap:10px}
-  .brand-text{font-size:1.2rem}
+  .brand-text{font-size:1.18rem}
   .icon-btn{width:36px;height:36px}
-  .icon-btn svg{width:20px;height:20px}
-  .user-dp-btn{width:38px;height:38px}
-  .dp-initials{font-size:.95rem}
-  .shell{padding:12px 12px calc(96px + env(safe-area-inset-bottom))}
+  .icon-btn svg{width:19px;height:19px}
+  .sync-chip{height:36px;padding:0 10px;font-size:.74rem}
+  .shell{padding:12px 12px calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom))}
   main{gap:14px}
 }
 

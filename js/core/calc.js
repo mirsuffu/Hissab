@@ -1,11 +1,12 @@
-import { dateTs } from './models.js';
+import { dateTs, fmt } from './models.js';
 import { prefs } from './prefs.js';
 
 export const monthRange = (d = new Date()) =>
   [new Date(d.getFullYear(), d.getMonth(), 1).getTime(), new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()];
-const signed = t => (t.type === 'in' ? t.amount : -t.amount);
+export const signed = t => (t.type === 'in' ? t.amount : -t.amount);
+export const fundSigned = t => (t.potId ? (t.type === 'in' ? -t.amount : t.amount) : (t.type === 'in' ? t.amount : -t.amount));
 
-export const fundBalance = (f, txns) => f.opening + txns.filter(t => t.fundId === f.id).reduce((a, t) => a + signed(t), 0);
+export const fundBalance = (f, txns) => f.opening + txns.filter(t => t.fundId === f.id).reduce((a, t) => a + fundSigned(t), 0);
 
 export const potBalance = (p, txns) => (p.opening || 0) + txns.filter(t => t.potId === p.id).reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0);
 
@@ -40,12 +41,13 @@ export const suspenseBalance = (txns, suspenseFundId = 'fund-suspense') =>
   txns.filter(t => t.fundId === suspenseFundId || t.isSuspense).reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0);
 
 // Gain/Loss = surplus or deficit. Money held for others is NOT income/expense for you.
+// Pot sweeps are internal balance allocations and do not alter external income/expense.
 export function summary(funds, txns, from, to) {
   const own = new Set(funds.filter(f => f.type !== 'held').map(f => f.id));
   let income = 0, expense = 0;
   for (const t of txns) {
     const ts = dateTs(t.date);
-    if (!own.has(t.fundId) || ts < from || ts >= to || t.transferId) continue; // transfers between funds are neutral
+    if (!own.has(t.fundId) || ts < from || ts >= to || t.transferId || t.potId) continue; // transfers between funds & pot sweeps are neutral
     t.type === 'in' ? (income += t.amount) : (expense += t.amount);
   }
   return { income, expense, net: income - expense };
@@ -53,7 +55,7 @@ export function summary(funds, txns, from, to) {
 
 // Progress meter: held funds -> spent vs received; others -> this month vs monthly budget.
 export function meter(f, txns, from, to) {
-  const mine = txns.filter(t => t.fundId === f.id);
+  const mine = txns.filter(t => t.fundId === f.id && !t.potId);
   if (f.type === 'held') {
     const received = f.opening + mine.filter(t => t.type === 'in').reduce((a, t) => a + t.amount, 0);
     const spent = mine.filter(t => t.type === 'out').reduce((a, t) => a + t.amount, 0);

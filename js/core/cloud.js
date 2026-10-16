@@ -108,16 +108,76 @@ export async function updateProfile({ name, discoverable }) {
   profile = { ...profile, name: nm, nameLower: nm.toLowerCase(), discoverable: disc }; emit();
 }
 
-// ---- search: exact ID, or name prefix (only people who chose to be discoverable) ----------------
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const d = [];
+  for (let i = 0; i <= b.length; i++) d[i] = [i];
+  for (let j = 0; j <= a.length; j++) d[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      d[i][j] = b.charAt(i - 1) === a.charAt(j - 1)
+        ? d[i - 1][j - 1]
+        : Math.min(d[i - 1][j - 1] + 1, d[i][j - 1] + 1, d[i - 1][j] + 1);
+    }
+  }
+  return d[b.length][a.length];
+}
+
+// ---- search: exact ID, middle-names, substrings, and fuzzy typo tolerance ----------------
 export async function search(text) {
-  need(); const { doc, getDoc, collection, query, where, limit, getDocs } = F.Fs;
+  need(); const { doc, getDoc, collection, query, limit, getDocs } = F.Fs;
   const s = text.trim().toLowerCase().replace(/^@/, ''); if (!s) return [];
   const found = new Map();
-  if (HANDLE.test(s)) { const h = await getDoc(doc(db, 'handles', s)); if (h.exists()) { const u = await loadProfile(h.data().uid); if (u) found.set(u.uid, u); } }
-  const snap = await getDocs(query(collection(db, 'directory'), where('nameLower', '>=', s), where('nameLower', '<=', s + '\uf8ff'), limit(10)));
-  snap.docs.forEach(d => found.set(d.id, d.data()));
+
+  // 1. Exact handle lookup
+  if (HANDLE.test(s)) {
+    try {
+      const h = await getDoc(doc(db, 'handles', s));
+      if (h.exists()) {
+        const u = await loadProfile(h.data().uid);
+        if (u) found.set(u.uid, { ...u, score: 100 });
+      }
+    } catch {}
+  }
+
+  // 2. Fetch directory collection (broad pool up to 50 users)
+  try {
+    const snap = await getDocs(query(collection(db, 'directory'), limit(50)));
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (data.uid === me.uid) continue;
+      const nm = (data.name || '').toLowerCase();
+      const hnd = (data.handle || '').toLowerCase();
+      const words = nm.split(/\s+/).filter(Boolean);
+
+      let score = 0;
+      if (hnd === s) score = 100;
+      else if (hnd.includes(s)) score = 80;
+      else if (nm === s) score = 95;
+      else if (nm.startsWith(s)) score = 90;
+      else if (words.some(w => w.startsWith(s))) score = 85;
+      else if (nm.includes(s)) score = 75;
+      else if (s.length >= 3) {
+        const maxDist = s.length >= 5 ? 2 : 1;
+        const minWordDist = Math.min(...words.map(w => levenshtein(s, w)));
+        if (minWordDist <= maxDist) score = 60 - minWordDist * 10;
+      }
+
+      if (score > 0) {
+        const existing = found.get(data.uid);
+        if (!existing || (existing.score || 0) < score) {
+          found.set(data.uid, { ...data, score });
+        }
+      }
+    }
+  } catch (e) {
+    logger.warn('Directory search failed', { error: String(e) });
+  }
+
   found.delete(me.uid);
-  return [...found.values()];
+  return [...found.values()].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 15);
 }
 
 // ---- chat ---------------------------------------------------------------------------------

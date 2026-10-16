@@ -4,7 +4,7 @@ import { monthRange, fundBalance } from './calc.js';
 
 const own = L => new Set(L.allFunds.filter(f => f.type !== 'held').map(f => f.id));
 const sum = a => a.reduce((x, t) => x + t.amount, 0);
-const outs = (L, ids, from, to) => L.txns.filter(t => t.type === 'out' && !t.transferId && ids.has(t.fundId) && dateTs(t.date) >= from && dateTs(t.date) < to);
+const outs = (L, ids, from, to) => L.txns.filter(t => t.type === 'out' && !t.transferId && !t.potId && ids.has(t.fundId) && dateTs(t.date) >= from && dateTs(t.date) < to);
 
 export function forecast(L, now = new Date()) {
   const [a, b] = monthRange(now), ids = own(L), day = now.getDate(), dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -22,7 +22,7 @@ export function byCategory(L, now = new Date()) {
 export function alerts(L, now = new Date()) {
   const out = [], [a, b] = monthRange(now), mk = `${now.getFullYear()}-${now.getMonth()}`, DAY = 864e5, t0 = now.getTime();
   for (const f of L.funds) {
-    const mine = L.txns.filter(t => t.fundId === f.id && t.type === 'out' && !t.transferId), bal = fundBalance(f, L.txns);
+    const mine = L.txns.filter(t => t.fundId === f.id && t.type === 'out' && !t.transferId && !t.potId), bal = fundBalance(f, L.txns);
     if (f.type !== 'held' && f.budget) {
       const s = sum(mine.filter(t => dateTs(t.date) >= a && dateTs(t.date) < b)), p = s / f.budget;
       const day = Math.max(1, now.getDate()), dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -41,7 +41,7 @@ export function alerts(L, now = new Date()) {
     }
   }
   // Unusual spends: last 7 days, compared with older spends in the same category (needs 5+ samples).
-  const spends = L.txns.filter(t => t.type === 'out' && !t.transferId), names = Object.fromEntries(L.allCategories.map(c => [c.id, c.name]));
+  const spends = L.txns.filter(t => t.type === 'out' && !t.transferId && !t.potId), names = Object.fromEntries(L.allCategories.map(c => [c.id, c.name]));
   for (const t of spends.filter(x => dateTs(x.date) > t0 - 7 * DAY)) {
     const prior = spends.filter(x => x.categoryId === t.categoryId && x.id !== t.id && dateTs(x.date) < dateTs(t.date));
     if (prior.length < 5) continue;
