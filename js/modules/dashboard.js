@@ -71,7 +71,7 @@ export function render(root) {
 
   const suspBal = suspenseBalance(txns, SUSPENSE_FUND_ID);
   const suspHtml = suspBal !== 0 ? `
-    <div class="card glass" style="border-left:4px solid var(--accent);padding:12px 16px;margin-bottom:14px">
+    <div class="card glass d-only" style="border-left:4px solid var(--accent);padding:12px 16px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
         <div>
           <span style="font-weight:700;font-size:.88rem;color:var(--accent)">⚖️ Suspense Account: ${fmt(Math.abs(suspBal))} pending</span>
@@ -105,8 +105,8 @@ export function render(root) {
       </section>
     </div>
 
-    <!-- Mobile 2-column layout (< 900px) -->
-    <div class="dashboard-columns-mobile">
+    <!-- Mobile 2-column layout (< 900px, Detailed only; Funds accessed via Funds tab in Minimal) -->
+    <div class="dashboard-columns-mobile d-only">
       <div class="dashboard-col">
         <h2 class="dashboard-col-title">Funds</h2>
         <div class="col-cards-stack">
@@ -124,17 +124,17 @@ export function render(root) {
 
     <!-- Desktop layout (>= 900px) -->
     <div class="dashboard-sections-desktop">
-      ${al.length ? `<section class="card glass stack"><h2>Heads-up</h2>${al.map(a => `<p class="${a.level === 'bad' ? 'neg' : ''}">${esc(a.text)}</p>`).join('')}</section>` : ''}
+      ${al.length ? `<section class="card glass stack d-only"><h2>Heads-up</h2>${al.map(a => `<p class="${a.level === 'bad' ? 'neg' : ''}">${esc(a.text)}</p>`).join('')}</section>` : ''}
       ${fc.spent ? `<section class="card glass d-only"><span class="label">Spending forecast</span><b>On pace for ${fmt(fc.projected)} this month</b>${fc.avg ? `<p class="muted">Usual month: ${fmt(fc.avg)}</p>` : ''}</section>` : ''}
       ${cats.length ? `<section class="card glass stack d-only"><h2>Where it went</h2>${cats.map(c => `<div><div class="split" style="justify-content:space-between"><span>${esc(c.name)}</span><b>${fmt(c.amount)}</b></div><div class="meter inset"><i style="width:${Math.round(c.amount / top * 100)}%"></i></div></div>`).join('')}</section>` : ''}
       ${held.length ? `<section class="card glass"><span class="label">Held for others</span><strong class="big" style="font-size:1.6rem">${fmt(sum(held))}</strong><p class="muted">Kept apart — not counted in your money.</p></section>` : ''}
-      <section class="stack"><h2>Funds</h2>
+      <section class="stack d-only"><h2>Funds</h2>
         ${funds.length ? `<div class="grid grid-funds">${funds.map(f => tile(f, txns)).join('')}</div>`
           : `<div class="empty glass"><p>No funds yet. A fund is your operational bank or cash account.</p><p><a class="btn" href="#/funds">Create your first fund</a></p></div>`}
       </section>
 
       ${pots.length ? `
-        <section class="stack" style="margin-top:20px">
+        <section class="stack d-only" style="margin-top:20px">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <h2>Savings Pots</h2>
             <a href="#/pots" class="muted" style="font-size:.82rem">View all (${pots.length}) ›</a>

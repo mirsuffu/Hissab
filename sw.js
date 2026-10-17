@@ -1,5 +1,5 @@
 // Hisaab Service Worker: offline asset cache + notification click handling
-const CACHE_NAME = 'hisaab-shell-v20';
+const CACHE_NAME = 'hisaab-shell-v23';
 const ASSETS = [
   './',
   'index.html',
@@ -7,6 +7,8 @@ const ASSETS = [
   'logo-48.png',
   'logo-192.png',
   'logo-512.png',
+  'fonts/abadi-regular.ttf',
+  'fonts/abadi-bold.ttf',
   'css/tokens.css',
   'css/base.css',
   'css/components.css',
@@ -14,6 +16,8 @@ const ASSETS = [
   'js/firebase-config.js',
   'js/main.js',
   'js/ui.js',
+  'js/core/fonts.js',
+
   'js/core/ai.js',
   'js/core/biometric.js',
   'js/core/calc.js',

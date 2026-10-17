@@ -79,9 +79,10 @@ val syncWebAssets = tasks.register<Copy>("syncWebAssets") {
         include("manifest.json")
         include("sw.js")
         include("logo-*.png")
-        include("logo.ico")
+        include("fonts/**")
         include("css/**")
         include("js/**")
+
     }
     into(targetDir)
     duplicatesStrategy = DuplicatesStrategy.INCLUDE

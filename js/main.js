@@ -66,11 +66,13 @@ const badge = () => (unread ? `<i class="badge" data-badge>${unread}</i>` : '<i 
 function renderNav() {
   const { name } = current();
   const isDesktop = window.innerWidth >= 900;
+  const isMinimal = prefs().mode === 'minimal';
   const nav = $('#nav');
   if (!nav) return;
 
   const currentMode = isDesktop ? 'desktop' : 'mobile';
-  if (nav.dataset.mode === currentMode) {
+  const navStateKey = `${currentMode}-${isMinimal ? 'min' : 'det'}`;
+  if (nav.dataset.navStateKey === navStateKey) {
     for (const a of nav.querySelectorAll('a[href]')) {
       const href = a.getAttribute('href') || '';
       const key = href.replace(/^#\//, '').split('/')[0];
@@ -80,9 +82,15 @@ function renderNav() {
   }
 
   nav.dataset.mode = currentMode;
+  nav.dataset.navStateKey = navStateKey;
   if (isDesktop) {
+    const sections = isMinimal ? [
+      { section: 'Overview', keys: ['home', 'funds', 'history'] },
+      { section: 'Insights', keys: ['metrics', 'statements'] },
+    ] : DESKTOP_NAV;
+
     let html = '';
-    for (const sec of DESKTOP_NAV) {
+    for (const sec of sections) {
       html += `<div class="nav-section">${sec.section}</div>`;
       for (const k of sec.keys) {
         const r = routes[k];
@@ -93,27 +101,41 @@ function renderNav() {
     }
     nav.innerHTML = html;
   } else {
-    // Mobile bottom navigation: 7 slots [Home] [Funds] [Pots] [ ＋ Add ] [Statements] [History] [Chat]
     const homeOn = name === 'home' ? 'on' : '';
     const fundsOn = name === 'funds' ? 'on' : '';
-    const potsOn = name === 'pots' ? 'on' : '';
     const statementsOn = name === 'statements' ? 'on' : '';
     const historyOn = name === 'history' ? 'on' : '';
-    const chatOn = name === 'chat' ? 'on' : '';
 
-    nav.innerHTML = `
-      <a href="#/home" class="${homeOn}">${icon('home')}<span>Home</span></a>
-      <a href="#/funds" class="${fundsOn}">${icon('funds')}<span>Funds</span></a>
-      <a href="#/pots" class="${potsOn}">${icon('pot')}<span>Pots</span></a>
-      <button type="button" class="nav-add-btn" id="mobile-add-btn" data-add aria-label="Add entry" title="Add entry">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-      <a href="#/statements" class="${statementsOn}">${icon('statements')}<span>Statements</span></a>
-      <a href="#/history" class="${historyOn}">${icon('history')}<span>History</span></a>
-      <a href="#/chat" class="${chatOn}">${icon('chat')}<span>Chat</span>${badge()}</a>
-    `;
+    if (isMinimal) {
+      // Minimal Mobile bottom navigation: 5 slots [Home] [Funds] [ ＋ Add ] [Statements] [History]
+      nav.innerHTML = `
+        <a href="#/home" class="${homeOn}">${icon('home')}<span>Home</span></a>
+        <a href="#/funds" class="${fundsOn}">${icon('funds')}<span>Funds</span></a>
+        <button type="button" class="nav-add-btn" id="mobile-add-btn" data-add aria-label="Add entry" title="Add entry">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <a href="#/statements" class="${statementsOn}">${icon('statements')}<span>Statements</span></a>
+        <a href="#/history" class="${historyOn}">${icon('history')}<span>History</span></a>
+      `;
+    } else {
+      // Detailed Mobile bottom navigation: 7 slots [Home] [Funds] [Pots] [ ＋ Add ] [Statements] [History] [Chat]
+      const potsOn = name === 'pots' ? 'on' : '';
+      const chatOn = name === 'chat' ? 'on' : '';
+      nav.innerHTML = `
+        <a href="#/home" class="${homeOn}">${icon('home')}<span>Home</span></a>
+        <a href="#/funds" class="${fundsOn}">${icon('funds')}<span>Funds</span></a>
+        <a href="#/pots" class="${potsOn}">${icon('pot')}<span>Pots</span></a>
+        <button type="button" class="nav-add-btn" id="mobile-add-btn" data-add aria-label="Add entry" title="Add entry">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <a href="#/statements" class="${statementsOn}">${icon('statements')}<span>Statements</span></a>
+        <a href="#/history" class="${historyOn}">${icon('history')}<span>History</span></a>
+        <a href="#/chat" class="${chatOn}">${icon('chat')}<span>Chat</span>${badge()}</a>
+      `;
+    }
   }
 }
+
 
 function updateDp() {
   const s = cloud.state();
@@ -194,12 +216,22 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 function updateAiFab() {
   const fab = $('#fab-ai');
   if (!fab) return;
+  if (prefs().mode === 'minimal') {
+    fab.hidden = true;
+    return;
+  }
   const cfg = getAiConfig();
   fab.hidden = !cfg.enabled;
 }
 
 function renderCurrentView() {
   const { name, arg } = current();
+  const isMinimal = prefs().mode === 'minimal';
+  const disabledInMinimal = ['pots', 'chat', 'recurring', 'suspense', 'audit', 'logs'];
+  if (isMinimal && disabledInMinimal.includes(name)) {
+    location.hash = '#/home';
+    return;
+  }
   document.body.dataset.route = name;
   renderNav();
   updateDp();
@@ -260,14 +292,16 @@ function setBadge() {
   }
 }
 
-// Online / Offline listeners for the status ring
+// Online / Offline listeners for the status ring and view updates
 window.addEventListener('online', () => {
   const dp = $('#user-dp');
   if (dp) dp.classList.remove('offline');
+  draw();
 });
 window.addEventListener('offline', () => {
   const dp = $('#user-dp');
   if (dp) dp.classList.add('offline');
+  draw();
 });
 
 // Sync activity ring blinking animation (3 pulses)
@@ -339,6 +373,7 @@ window.addEventListener('keydown', e => {
   if (isInput) return;
 
   if ((e.key === 'k' && (e.ctrlKey || e.metaKey)) || e.key === '/') {
+    if (prefs().mode === 'minimal') return;
     e.preventDefault();
     openAiAssistant();
     return;
@@ -346,7 +381,11 @@ window.addEventListener('keydown', e => {
 
   if (e.key === 'N') {
     e.preventDefault();
-    openQuickExpense();
+    if (prefs().mode === 'minimal') {
+      openTxnSheet();
+    } else {
+      openQuickExpense();
+    }
     return;
   }
 
@@ -447,7 +486,13 @@ makeDraggable($('#fab-add'), {
   id: 'add',
   defaultPos: { side: 'left' },
   onClick: () => openTxnSheet(),
-  onLongPress: () => openQuickExpense()
+  onLongPress: () => {
+    if (prefs().mode === 'minimal') {
+      openTxnSheet();
+    } else {
+      openQuickExpense();
+    }
+  }
 });
 
 makeDraggable($('#fab-ai'), {
@@ -460,9 +505,11 @@ initLock();
 initSoundListener();
 await store.init();
 updateSyncChip();
-const recCount = await store.runRecurring();
-if (recCount > 0) {
-  toast(`📅 Auto-pilot alert: ${recCount} recurring ${recCount === 1 ? 'entry was' : 'entries were'} posted! Like clockwork ⏰✨`);
+if (prefs().mode !== 'minimal') {
+  const recCount = await store.runRecurring();
+  if (recCount > 0) {
+    toast(`📅 Auto-pilot alert: ${recCount} recurring ${recCount === 1 ? 'entry was' : 'entries were'} posted! Like clockwork ⏰✨`);
+  }
 }
 if (cloud.configured()) {
   cloud.onChange(cloudChanged);
@@ -487,7 +534,7 @@ pruneLogs();
 
 // Check recurring on tab refocus (overnight session date rollover)
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) store.runRecurring().catch(() => {});
+  if (!document.hidden && prefs().mode !== 'minimal') store.runRecurring().catch(() => {});
 });
 
 // Notify user when a new Service Worker version activates

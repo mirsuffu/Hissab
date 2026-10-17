@@ -18,6 +18,12 @@ const link = (href, title, sub) => `<a class="row-item" href="${href}">${title}<
 
 export function render(root) {
   const p = prefs(), { profiles, profile, pots } = store.live(), aiCfg = getAiConfig();
+  const isOnline = navigator.onLine;
+  const isConnected = !!(cloud.state().user);
+  const canSync = isOnline && isConnected;
+  const syncStatus = !canSync
+    ? 'Local Only'
+    : (localStorage.getItem('hisaab.syncOn') === '0' ? 'Sync Paused' : `Status: ${sync.status()}`);
   if (cloud.configured() && !cloud.state().ready) cloud.init().then(() => { if (location.hash.startsWith('#/settings')) render(root); }).catch(e => logger.warn('Cloud init failed', { error: String(e) }));
 
   const openIndexes = [];
@@ -44,9 +50,9 @@ export function render(root) {
           <label class="field" style="margin-top:6px"><span>Theme</span></label>
           <div class="seg">${['auto', 'mist', 'ink'].map(t => `<label><input type="radio" name="theme" value="${t}" ${p.theme === t ? 'checked' : ''}><span>${{ auto: 'Auto', mist: 'Light', ink: 'Dark' }[t]}</span></label>`).join('')}</div>
           
-          <label class="field"><span>Font size (${p.fontSize || 15}px)</span><input type="range" data-pref="fontSize" min="12" max="20" step="1" value="${p.fontSize || 15}"></label>
-          ${range('hue', 'Accent colour', 0, 360, 1, false)}${range('radius', 'Roundness', 6, 36)}${range('depth', 'Depth (soft shadows)', 2, 18)}${range('blur', 'Glass blur', 0, 36)}${range('density', 'Spacing', 0.75, 1.4, 0.05)}
-          <div><button class="btn" data-reset>Reset appearance</button></div>
+          <label class="field d-only"><span>Font size (${p.fontSize || 15}px)</span><input type="range" data-pref="fontSize" min="12" max="20" step="1" value="${p.fontSize || 15}"></label>
+          ${range('hue', 'Accent colour', 0, 360, 1, true)}${range('radius', 'Roundness', 6, 36)}${range('depth', 'Depth (soft shadows)', 2, 18)}${range('blur', 'Glass blur', 0, 36)}${range('density', 'Spacing', 0.75, 1.4, 0.05)}
+          <div class="d-only"><button class="btn" data-reset>Reset appearance</button></div>
         </div>
       </details>
 
@@ -82,13 +88,13 @@ export function render(root) {
             <label class="field" style="margin-top:6px"><span>Lock after leaving the app for</span>
               <select data-lockmin>${[0, 1, 5, 15].map(m => `<option value="${m}" ${lock.minutes() === m ? 'selected' : ''}>${m ? m + ' min' : 'Immediately'}</option>`).join('')}</select>
             </label>
-            ${toggleSwitch('bio', isBiometricEnabled(), 'Biometric Unlock', 'Use native fingerprint / biometric sensor to unlock', 'data-bio')}
+            <div class="d-only">${toggleSwitch('bio', isBiometricEnabled(), 'Biometric Unlock', 'Use native fingerprint / biometric sensor to unlock', 'data-bio')}</div>
           ` : ''}
         </div>
       </details>
 
       <!-- 4. Alerts & Safety Guards -->
-      <details class="settings-acc">
+      <details class="settings-acc d-only">
         <summary>
           <div class="acc-title"><span>🛡️</span><span>Alerts & Safety Guards</span></div>
           <svg class="acc-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
@@ -117,7 +123,7 @@ export function render(root) {
       </details>
 
       <!-- 5. AI Financial Co-Pilot -->
-      <details class="settings-acc" id="ai-settings">
+      <details class="settings-acc d-only" id="ai-settings">
         <summary>
           <div class="acc-title"><span>🤖</span><span>AI Financial Co-Pilot</span></div>
           <svg class="acc-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
@@ -169,22 +175,22 @@ export function render(root) {
           <svg class="acc-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
         </summary>
         <div class="acc-body form">
-          <div class="rows">${link('#/statements', 'Statements', 'Export by day, month, fund, category, party…')}${link('#/audit', 'Audit trail', 'Every change to your data')}${link('#/logs', 'Logs', 'What the app did on this device')}</div>
+          <div class="rows d-only">${link('#/statements', 'Statements', 'Export by day, month, fund, category, party…')}${link('#/audit', 'Audit trail', 'Every change to your data')}${link('#/logs', 'Logs', 'What the app did on this device')}</div>
           
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
             <span style="font-weight:600">Cloud Synchronization</span>
-            <button type="button" class="btn" data-sync-now style="padding:4px 12px;font-size:.82rem">⚡ Sync Now</button>
+            <button type="button" class="btn" data-sync-now ${canSync ? '' : 'disabled '}style="padding:4px 12px;font-size:.82rem${canSync ? '' : ';opacity:.42;pointer-events:none'}">⚡ Sync Now</button>
           </div>
-          ${toggleSwitch('sync', localStorage.getItem('hisaab.syncOn') !== '0', 'Auto Cloud Sync', `Status: ${sync.status()}`, 'data-sync')}
-          <label class="field"><span>Sync interval</span>
-            <select data-sync-interval>
+          ${toggleSwitch('sync', canSync && localStorage.getItem('hisaab.syncOn') !== '0', 'Auto Cloud Sync', syncStatus, 'data-sync', !canSync)}
+          <label class="field"${canSync ? '' : ' style="opacity:.42;pointer-events:none"'}><span>Sync interval</span>
+            <select data-sync-interval ${canSync ? '' : 'disabled'}>
               ${[0, 10, 30, 60].map(s => `<option value="${s}" ${sync.interval() === s ? 'selected' : ''}>${s ? (s < 60 ? s + 's' : '1m') : 'Manual only'}</option>`).join('')}
             </select>
           </label>
 
           <div class="row" style="margin-top:6px">
             <button class="btn" data-export>Export backup</button>
-            <button class="btn" data-export-enc>Encrypted backup</button>
+            <button class="btn d-only" data-export-enc>Encrypted backup</button>
             <label class="btn">Import backup<input type="file" accept=".json,.enc.json,application/json,text/plain" data-import hidden></label>
           </div>
 
@@ -251,7 +257,7 @@ export function render(root) {
     const t = e.target;
     try {
       if (t.name === 'theme') setPref('theme', t.value);
-      else if (t.name === 'mode') { setPref('mode', t.value); render(root); }
+      else if (t.name === 'mode') { setPref('mode', t.value); store.touch(); render(root); }
       else if (t.matches('[data-sound]')) {
         setPref('sound', t.checked);
         const vf = root.querySelector('#sound-vol-field');
@@ -287,7 +293,16 @@ export function render(root) {
         }
       }
       else if (t.matches('[data-lockmin]')) lock.setMinutes(Number(t.value));
-      else if (t.matches('[data-sync]')) { localStorage.setItem('hisaab.syncOn', t.checked ? '1' : '0'); logger.info('Cloud sync toggled', { on: t.checked }); cloud.refresh(); }
+      else if (t.matches('[data-sync]')) {
+        if (!navigator.onLine || !cloud.state().user) {
+          t.checked = false;
+          toast('Cannot sync: Connect with Google and ensure you are online 🌐☁️');
+          return;
+        }
+        localStorage.setItem('hisaab.syncOn', t.checked ? '1' : '0');
+        logger.info('Cloud sync toggled', { on: t.checked });
+        cloud.refresh();
+      }
       else if (t.matches('[data-sync-interval]')) { sync.setInterval(Number(t.value)); sync.schedule((k, d) => store.applyRemote(k, d, false)); toast('Sync clock wound up tight! We’ll keep tabs on schedule ⏱️☁️'); }
       else if (t.matches('[data-ai-enabled]')) {
         saveAiConfig({ enabled: t.checked });
@@ -361,6 +376,10 @@ export function render(root) {
     try {
       if (t.closest('[data-reset]')) { resetPrefs(); render(root); }
       else if (t.closest('[data-sync-now]')) {
+        if (!navigator.onLine || !cloud.state().user) {
+          toast('Cannot sync: Connect with Google and ensure you are online 🌐☁️');
+          return;
+        }
         toast('Beaming your ledgers to the cloud mothership… 🛸☁️');
         await sync.flush();
         toast('Cloud sync crystal clear! Your numbers are immortal now ☁️💎');

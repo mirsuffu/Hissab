@@ -79,7 +79,7 @@ export async function openTxnSheet({ txn = null, fundId = null } = {}) {
     <h2>${txn ? (t.transferId ? 'Edit transfer' : 'Edit entry') : 'New entry'}</h2>
     <form id="tf" class="form">
       ${draft ? `
-        <div id="draft-banner" class="ai-confirm-done" style="display:flex;justify-content:space-between;align-items:center;background:var(--accent-soft);color:var(--accent);font-size:.82rem;padding:6px 10px;border-radius:calc(var(--radius)*.5)">
+        <div id="draft-banner" class="ai-confirm-done d-only" style="display:flex;justify-content:space-between;align-items:center;background:var(--accent-soft);color:var(--accent);font-size:.82rem;padding:6px 10px;border-radius:calc(var(--radius)*.5)">
           <span>📝 Restored unfinished draft</span>
           <button type="button" class="btn" id="discard-draft-btn" style="padding:2px 8px;font-size:.75rem">Discard draft</button>
         </div>
@@ -103,8 +103,8 @@ export async function openTxnSheet({ txn = null, fundId = null } = {}) {
       <label class="field"><span>Amount</span><input name="amount" inputmode="decimal" required autocomplete="off" placeholder="0.00" value="${t.amount ? fromMinor(t.amount) : ''}"></label>
       <label class="field"><span>Fund</span><select name="fundId">${funds.map(f => opt(f, t.fundId, f.name + (f.holder ? ' · ' + f.holder : ''))).join('')}</select></label>
       <label class="field" id="toFund" hidden><span>Move to fund</span><select name="toFund">${funds.map(f => `<option value="${f.id}" ${f.id === otherFund ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
-      <label class="${txn ? (t.transferId || t.potId ? 'field cat-party sr' : 'field cat-party') : 'field d-only cat-party'}"><span>Category</span><select name="categoryId" data-new="categories">${cats.map(c => opt(c, t.categoryId)).join('')}<option value="__new">+ New category…</option></select></label>
-      <label class="${txn ? (t.transferId || t.potId ? 'field cat-party sr' : 'field cat-party') : 'field d-only cat-party'}"><span>Party (who from / to)</span><select name="partyId" data-new="parties"><option value="">None</option>${parties.map(p => opt(p, t.partyId)).join('')}<option value="__new">+ New party…</option></select></label>
+      <label class="${t.transferId || t.potId ? 'field cat-party sr' : 'field cat-party'}"><span>Category</span><select name="categoryId" data-new="categories">${cats.map(c => opt(c, t.categoryId)).join('')}<option value="__new">+ New category…</option></select></label>
+      <label class="${t.transferId || t.potId ? 'field cat-party sr' : 'field cat-party'}"><span>Party (who from / to)</span><select name="partyId" data-new="parties"><option value="">None</option>${parties.map(p => opt(p, t.partyId)).join('')}<option value="__new">+ New party…</option></select></label>
       <label class="${txn ? 'field' : 'field d-only'}"><span>Date</span><input type="date" name="date" value="${t.date}" required></label>
       <label class="field"><span>Comment</span><input name="note" autocomplete="off" placeholder="Notes or remarks" value="${esc(t.note)}"></label>
 

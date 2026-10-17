@@ -196,8 +196,13 @@ body[data-route="chat"] .fab{display:none!important}
   box-shadow:inset 3px 3px 7px var(--sh-lo),inset -3px -3px 7px var(--sh-hi);transition:color .15s}
 .ai-preset-select:focus-visible{outline:2px solid var(--accent)}
 
-.ai-msgs{max-height:50vh;overflow-y:auto;padding-right:4px}
+.ai-msgs{display:flex;flex-direction:column;gap:12px;max-height:52vh;overflow-y:auto;padding:8px 4px 12px 0}
+.ai-msg{max-width:85%}
+.ai-msg.me{align-self:flex-end;margin-left:auto;margin-right:0;border-bottom-right-radius:4px}
+.ai-msg.them{align-self:flex-start;margin-right:auto;margin-left:0;border-bottom-left-radius:4px}
 .ai-msg .md-p{margin:4px 0}
+.ai-msg .md-p:first-child{margin-top:0}
+.ai-msg .md-p:last-child{margin-bottom:0}
 .ai-composer{display:flex;gap:8px;padding:8px;border-radius:calc(var(--radius)*.8)}
 .ai-composer input{flex:1;border:0;outline:0;padding:10px 14px;border-radius:calc(var(--radius)*.5);
   background:var(--bg);box-shadow:inset 4px 4px 9px var(--sh-lo),inset -4px -4px 9px var(--sh-hi)}
@@ -360,8 +365,8 @@ details.audit ul{list-style:none;display:grid;gap:4px;margin-top:10px;font-size:
 
 .chat-thread-msgs{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:10px;overscroll-behavior-y:contain;scroll-behavior:smooth}
 .msg{max-width:78%;padding:10px 14px;border-radius:calc(var(--radius)*.8);display:grid;gap:4px;word-break:break-word}
-.msg.me{align-self:flex-end;background:var(--accent);color:#fff}
-.msg.them{align-self:flex-start;background:var(--bg);box-shadow:5px 5px 12px var(--sh-lo),-5px -5px 12px var(--sh-hi)}
+.msg.me{align-self:flex-end;margin-left:auto;margin-right:0;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg.them{align-self:flex-start;margin-right:auto;margin-left:0;background:var(--bg);box-shadow:5px 5px 12px var(--sh-lo),-5px -5px 12px var(--sh-hi);border-bottom-left-radius:4px}
 .msg img{max-width:100%;max-height:280px;border-radius:calc(var(--radius)*.5);display:block}
 
 /* Message Time & Status Ticks Row */
@@ -574,6 +579,19 @@ details.settings-acc .acc-body{
 .pin-shake{animation:pin-shake 0.35s ease-in-out}
 .pattern-wrap canvas{background:var(--bg);box-shadow:inset 3px 3px 8px var(--sh-lo), inset -3px -3px 8px var(--sh-hi)}
 #pass-input{-webkit-text-security:disc}
+
+/* ---- Minimal Mode & Banking Statement Print Rules ---- */
+[data-mode="minimal"] #fab-ai,
+[data-mode="minimal"] .fab-ai {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 0.5cm;
+  }
+}
 
 
 

@@ -110,7 +110,7 @@ function detail(root, id) {
   const received = f.opening + mine.filter(t => (t.potId ? t.type === 'out' : t.type === 'in')).reduce((x, t) => x + t.amount, 0);
   const spent = mine.filter(t => (t.potId ? t.type === 'in' : t.type === 'out')).reduce((x, t) => x + t.amount, 0);
     const bal = fundBalance(f, txns);
-    const brsOn = prefs().brsEnabled !== false && !f.deleted && !f.archived && f.type !== 'held';
+    const brsOn = prefs().mode !== 'minimal' && prefs().brsEnabled !== false && !f.deleted && !f.archived && f.type !== 'held';
     root.innerHTML = `
     <header class="top"><div><a class="muted" href="#/funds">‹ Funds</a><h1>${dot(f.hue)}${esc(f.name)}</h1>${f.holder ? `<p class="muted">Held for ${esc(f.holder)}</p>` : ''}</div>
       ${f.archived ? '' : '<button class="btn" data-edit-fund>Edit</button>'}</header>
@@ -118,9 +118,9 @@ function detail(root, id) {
       ? '<div class="card glass"><b>This fund is permanently closed / archived.</b><p class="muted">All entries are preserved as historical record. It cannot accept new entries.</p></div>'
       : (f.deleted ? '<div class="card glass"><b>This fund is deleted.</b><p class="muted">Its entries are kept as they were. It can’t take new entries unless restored.</p><p><button class="btn primary" data-restore>Restore fund</button></p></div>' : '')}
     <section class="hero raised ${bal < 0 ? 'overdraft' : ''}"><div><span class="label">Balance</span><strong class="big ${bal < 0 ? 'neg' : ''}">${fmt(bal)}</strong></div>
-      <div class="split d-only"><div><span class="label">Received</span><b class="pos">${fmt(received)}</b></div><div><span class="label">Spent</span><b>${fmt(spent)}</b></div></div>
+      <div class="split"><div><span class="label">Received</span><b class="pos">${fmt(received)}</b></div><div><span class="label">Spent</span><b>${fmt(spent)}</b></div></div>
       ${m ? `<div class="meter d-only inset ${m.spent > m.total ? 'over' : ''}"><i style="width:${Math.min(100, Math.round(m.spent / (m.total || 1) * 100))}%"></i></div><span class="label d-only">${fmt(m.spent)} ${m.caption} (${fmt(m.total)})</span>` : ''}
-      <div class="row">${f.deleted ? '' : '<button class="btn primary" data-add>Add entry</button>'}<button class="btn" data-copy>Copy statement</button><a class="btn" href="#/statements/${id}">Export…</a>${brsOn ? '<button class="btn" data-reconcile title="Reconcile against actual bank passbook or physical cash">⚖️ Reconcile</button>' : ''}</div>
+      <div class="row">${f.deleted ? '' : '<button class="btn primary" data-add>Add entry</button>'}<button class="btn d-only" data-copy>Copy statement</button><a class="btn" href="#/statements/${id}">Export…</a>${brsOn ? '<button class="btn d-only" data-reconcile title="Reconcile against actual bank passbook or physical cash">⚖️ Reconcile</button>' : ''}</div>
     </section>
     <section class="stack"><h2>Entries</h2><div class="rows">${mine.map(t => txnRow(t, f, L)).join('') || '<div class="empty glass">Nothing here yet! Your fund is pristine and untouched 🍃✨</div>'}</div></section>`;
   root.onclick = async e => {

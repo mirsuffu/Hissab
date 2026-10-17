@@ -158,15 +158,18 @@ export function promptModal({ title = 'Input', message = '', placeholder = '', d
 }
 
 // Neumorphic Toggle Switch HTML Component (Matches Reference Image)
-export function toggleSwitch(name, checked, title, desc = '', dataAttr = '') {
+export function toggleSwitch(name, checked, title, desc = '', dataAttr = '', disabled = false) {
+  const disClass = disabled ? ' disabled' : '';
+  const disAttr = disabled ? ' disabled' : '';
+  const disStyle = disabled ? ' style="opacity:.45;pointer-events:none;cursor:not-allowed"' : '';
   return `
-    <div class="toggle-row">
+    <div class="toggle-row${disClass}"${disStyle}>
       <div class="toggle-label">
         <span class="toggle-title">${esc(title)}</span>
         ${desc ? `<span class="toggle-desc">${esc(desc)}</span>` : ''}
       </div>
-      <label class="toggle-switch">
-        <input type="checkbox" name="${esc(name)}" ${dataAttr} ${checked ? 'checked' : ''}>
+      <label class="toggle-switch${disClass}">
+        <input type="checkbox" name="${esc(name)}" ${dataAttr} ${checked ? 'checked' : ''}${disAttr}>
         <div class="toggle-track">
           <div class="toggle-thumb"></div>
         </div>
